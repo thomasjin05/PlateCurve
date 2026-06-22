@@ -122,6 +122,7 @@ export function ResultsView({ result }: ResultsViewProps) {
 
       <div className="results-table-scroll">
         <table>
+          <caption className="sr-only">Standardized ELISA results</caption>
           <thead>
             <tr>
               {RESULT_COLUMNS.map((header) => <th key={header} scope="col">{header}</th>)}

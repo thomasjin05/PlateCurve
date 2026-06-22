@@ -424,45 +424,59 @@ legend {
 }
 
 .plate-grid {
-  display: grid;
-  grid-template-columns: 50px repeat(12, minmax(64px, 1fr));
-  gap: 4px;
+  width: 100%;
   min-width: 890px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 4px;
 }
 
-.plate-corner,
-.plate-column-header,
-.plate-row-header {
-  display: grid;
+.plate-grid th,
+.plate-grid td {
+  min-width: 64px;
+  padding: 0;
+  text-align: center;
+  white-space: normal;
+  background: #fff;
+  border: 0;
+}
+
+.plate-grid .plate-corner,
+.plate-grid .plate-column-header,
+.plate-grid .plate-row-header {
   min-height: 44px;
-  place-items: center;
+  height: 44px;
   background: #fff;
   font-weight: 700;
 }
 
-.plate-corner,
-.plate-column-header {
+.plate-grid .plate-corner,
+.plate-grid .plate-column-header {
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
-.plate-corner,
-.plate-row-header {
+.plate-grid .plate-corner,
+.plate-grid .plate-row-header {
   position: sticky;
   left: 0;
 }
 
-.plate-corner {
+.plate-grid .plate-corner {
+  width: 50px;
+  min-width: 50px;
   z-index: 3;
   color: #64748b;
 }
 
-.plate-row-header {
+.plate-grid .plate-row-header {
+  top: auto;
   z-index: 1;
 }
 
 .plate-well {
+  width: 100%;
   min-width: 64px;
   min-height: 48px;
   padding: 6px 4px;

@@ -29,47 +29,54 @@ export function PlateGrid({
   }
 
   return (
-    <div className="plate-scroll" aria-label="96-well plate">
-      <div className="plate-grid" role="grid" aria-rowcount={9} aria-colcount={13}>
-        <div className="plate-corner" role="columnheader">
-          Row
-        </div>
-        {COLUMNS.map((column) => (
-          <div className="plate-column-header" role="columnheader" key={column}>
-            {column}
-          </div>
-        ))}
-        {ROWS.flatMap((rowName) => {
-          const row = wellsByRow.get(rowName)
-          return [
-            <div className="plate-row-header" role="rowheader" key={`${rowName}-header`}>
-              {rowName}
-            </div>,
-            ...COLUMNS.map((column) => {
+    <div className="plate-scroll">
+      <table aria-label="96-well plate" className="plate-grid">
+        <thead>
+          <tr>
+            <th className="plate-corner" scope="col">Row</th>
+            {COLUMNS.map((column) => (
+              <th className="plate-column-header" key={column} scope="col">
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {ROWS.map((rowName) => {
+            const row = wellsByRow.get(rowName)
+            return (
+              <tr key={rowName}>
+                <th className="plate-row-header" scope="row">{rowName}</th>
+                {COLUMNS.map((column) => {
               const well = row?.get(column)
               const wellId = `${rowName}${column}`
               const value = well?.rawAbsorbance ?? null
               const assignment = assignments[wellId]
               const formatted = formatAbsorbance(value)
+              const assignmentLabel = assignment
+                ? `assigned as ${assignment.type}${assignment.groupId ? ` group ${assignment.groupId}` : ''}`
+                : 'unused'
 
               return (
-                <button
-                  aria-label={`${wellId}, ${value === null ? 'no absorbance value' : `absorbance ${formatted}`}`}
-                  className={`plate-well ${assignment?.type ?? 'unused'}`}
-                  data-well-id={wellId}
-                  disabled={readOnly || value === null}
-                  key={wellId}
-                  onClick={() => onWellClick?.(wellId)}
-                  role="gridcell"
-                  type="button"
-                >
-                  {formatted}
-                </button>
+                <td key={wellId}>
+                  <button
+                    aria-label={`${wellId}, ${value === null ? 'no absorbance value' : `absorbance ${formatted}`}, ${assignmentLabel}`}
+                    className={`plate-well ${assignment?.type ?? 'unused'}`}
+                    data-well-id={wellId}
+                    disabled={readOnly || value === null}
+                    onClick={() => onWellClick?.(wellId)}
+                    type="button"
+                  >
+                    {formatted}
+                  </button>
+                </td>
               )
-            }),
-          ]
-        })}
-      </div>
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }

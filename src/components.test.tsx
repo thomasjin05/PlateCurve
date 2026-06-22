@@ -33,7 +33,8 @@ describe('PlateGrid', () => {
       <PlateGrid wells={makePlate()} assignments={assignments} />,
     )
 
-    expect(markup).toContain('role="grid"')
+    expect(markup).toContain('<table aria-label="96-well plate"')
+    expect(markup).not.toContain('role="gridcell"')
     expect(markup).toContain('>Row<')
     for (const header of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']) {
       expect(markup).toContain(`>${header}<`)
@@ -42,7 +43,10 @@ describe('PlateGrid', () => {
       expect(markup).toContain(`>${column}<`)
     }
     expect(markup.match(/data-well-id=/g)).toHaveLength(96)
-    expect(markup).toContain('aria-label="A1, absorbance 0.01"')
+    expect(markup).toContain('aria-label="A1, absorbance 0.01, assigned as blank"')
+    expect(markup).toContain(
+      'aria-label="B2, absorbance 1.02, assigned as standard group standard-1"',
+    )
     expect(markup).toContain('plate-well blank')
     expect(markup).toContain('plate-well standard')
     expect(markup).toContain('plate-well sample')
@@ -138,10 +142,11 @@ describe('ResultsView', () => {
       markup.indexOf('Results summary'),
     )
     expect(markup.indexOf('Results summary')).toBeLessThan(markup.indexOf('<table'))
+    expect(markup).toContain('<caption class="sr-only">Standardized ELISA results</caption>')
     expect(markup).toContain('Linear model')
     expect(markup).toContain('Blank mean')
     expect(markup).toContain('0 to 10')
-    expect(markup).toContain('role="grid"')
+    expect(markup).toContain('<table aria-label="96-well plate"')
     expect(markup).toContain('>H<')
     expect(markup).toContain('>12<')
     let previousIndex = -1

@@ -35,12 +35,24 @@ type AssignmentWorkspace = {
   activeSampleId: string
 }
 
+export type GroupDrafts = {
+  standardConcentrations: Record<string, string>
+  sampleNames: Record<string, string>
+  sampleDilutions: Record<string, string>
+}
+
 const EMPTY_WORKSPACE: AssignmentWorkspace = {
   assignments: {},
   standardGroups: [],
   sampleGroups: [],
   activeStandardId: '',
   activeSampleId: '',
+}
+
+const EMPTY_GROUP_DRAFTS: GroupDrafts = {
+  standardConcentrations: {},
+  sampleNames: {},
+  sampleDilutions: {},
 }
 
 function syncGroupWells(
@@ -79,14 +91,50 @@ function nextGroupId(prefix: string, ids: string[]): string {
 
 export function countUniqueAssignedStandardConcentrations(
   groups: readonly StandardGroup[],
+  drafts: Readonly<Record<string, string>> = {},
 ): number {
   return new Set(
-    groups.filter((group) => group.wellIds.length > 0).map((group) => group.concentration),
+    groups.flatMap((group) => {
+      if (group.wellIds.length === 0) return []
+      const concentration = parseRequiredNumber(
+        drafts[group.id] ?? String(group.concentration),
+      )
+      return Number.isFinite(concentration) ? [concentration] : []
+    }),
   ).size
 }
 
 function parseRequiredNumber(value: string): number {
   return value.trim() === '' ? Number.NaN : Number(value)
+}
+
+export function resolveGroupDrafts(
+  standardGroups: readonly StandardGroup[],
+  sampleGroups: readonly SampleGroup[],
+  drafts: GroupDrafts,
+): { standardGroups: StandardGroup[]; sampleGroups: SampleGroup[] } {
+  return {
+    standardGroups: standardGroups.map((group) => {
+      const concentration = parseRequiredNumber(
+        drafts.standardConcentrations[group.id] ?? String(group.concentration),
+      )
+      if (!Number.isFinite(concentration)) {
+        throw new Error(`Standard ${group.id} concentration must be a finite number.`)
+      }
+      return { ...group, concentration }
+    }),
+    sampleGroups: sampleGroups.map((group) => {
+      const name = (drafts.sampleNames[group.id] ?? group.name).trim()
+      if (!name) throw new Error(`Sample ${group.id} name is required.`)
+      const dilutionFactor = parseRequiredNumber(
+        drafts.sampleDilutions[group.id] ?? String(group.dilutionFactor),
+      )
+      if (!Number.isFinite(dilutionFactor) || dilutionFactor <= 0) {
+        throw new Error(`Sample ${group.id} dilution factor must be greater than zero.`)
+      }
+      return { ...group, name, dilutionFactor }
+    }),
+  }
 }
 
 function spreadsheetColumn(column: number): string {
@@ -146,6 +194,7 @@ export default function App() {
   const [regionColumn, setRegionColumn] = useState('1')
   const [regionError, setRegionError] = useState('')
   const [workspace, setWorkspace] = useState<AssignmentWorkspace>(EMPTY_WORKSPACE)
+  const [groupDrafts, setGroupDrafts] = useState<GroupDrafts>(EMPTY_GROUP_DRAFTS)
   const [tool, setTool] = useState<Tool>('blank')
   const [newStandard, setNewStandard] = useState('')
   const [newSampleName, setNewSampleName] = useState('')
@@ -161,6 +210,7 @@ export default function App() {
 
   const resetAfterPlate = () => {
     setWorkspace(EMPTY_WORKSPACE)
+    setGroupDrafts(EMPTY_GROUP_DRAFTS)
     setTool('blank')
     setNewStandard('')
     setNewSampleName('')
@@ -192,6 +242,7 @@ export default function App() {
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return
+    setFileInputKey((value) => value + 1)
 
     setStep(1)
     setFileName(file.name)
@@ -339,34 +390,25 @@ export default function App() {
         assignments,
       )
     })
+    setGroupDrafts((previous) => {
+      const standardConcentrations = { ...previous.standardConcentrations }
+      const sampleNames = { ...previous.sampleNames }
+      const sampleDilutions = { ...previous.sampleDilutions }
+      delete standardConcentrations[groupId]
+      delete sampleNames[groupId]
+      delete sampleDilutions[groupId]
+      return { standardConcentrations, sampleNames, sampleDilutions }
+    })
   }
 
-  const updateStandard = (groupId: string, value: string) => {
-    const concentration = parseRequiredNumber(value)
-    if (!Number.isFinite(concentration)) return
-    setWorkspace((previous) => ({
-      ...previous,
-      standardGroups: previous.standardGroups.map((group) =>
-        group.id === groupId ? { ...group, concentration } : group,
-      ),
-    }))
-  }
-
-  const updateSample = (
+  const updateGroupDraft = (
+    field: keyof GroupDrafts,
     groupId: string,
-    field: 'name' | 'dilutionFactor',
     value: string,
   ) => {
-    setWorkspace((previous) => ({
+    setGroupDrafts((previous) => ({
       ...previous,
-      sampleGroups: previous.sampleGroups.map((group) => {
-        if (group.id !== groupId) return group
-        if (field === 'name') return value.trim() ? { ...group, name: value } : group
-        const dilutionFactor = parseRequiredNumber(value)
-        return Number.isFinite(dilutionFactor) && dilutionFactor > 0
-          ? { ...group, dilutionFactor }
-          : group
-      }),
+      [field]: { ...previous[field], [groupId]: value },
     }))
   }
 
@@ -377,11 +419,23 @@ export default function App() {
   const standardWellCount = selectedCounts.standard
   const uniqueStandardCount = countUniqueAssignedStandardConcentrations(
     workspace.standardGroups,
+    groupDrafts.standardConcentrations,
   )
 
   const processPlate = () => {
     if (!plate) return
     setAnalysisError('')
+    let resolvedGroups: ReturnType<typeof resolveGroupDrafts>
+    try {
+      resolvedGroups = resolveGroupDrafts(
+        workspace.standardGroups,
+        workspace.sampleGroups,
+        groupDrafts,
+      )
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : String(error))
+      return
+    }
     let blank: BlankPolicy
     if (blankMode === 'selected') {
       if (selectedCounts.blank === 0) {
@@ -410,8 +464,8 @@ export default function App() {
       const nextResult = analyzePlate({
         wells: plate.wells,
         assignments: workspace.assignments,
-        standardGroups: workspace.standardGroups,
-        sampleGroups: workspace.sampleGroups,
+        standardGroups: resolvedGroups.standardGroups,
+        sampleGroups: resolvedGroups.sampleGroups,
         blank,
         curve,
       })
@@ -565,7 +619,21 @@ export default function App() {
                       <span className="sr-only">Select standard {group.concentration}</span>
                     </label>
                     <label htmlFor={`${group.id}-concentration`}>Concentration</label>
-                    <input id={`${group.id}-concentration`} onChange={(event) => updateStandard(group.id, event.target.value)} type="number" value={group.concentration} />
+                    <input
+                      id={`${group.id}-concentration`}
+                      onChange={(event) =>
+                        updateGroupDraft(
+                          'standardConcentrations',
+                          group.id,
+                          event.target.value,
+                        )
+                      }
+                      type="number"
+                      value={
+                        groupDrafts.standardConcentrations[group.id] ??
+                        String(group.concentration)
+                      }
+                    />
                     <span className="well-list">{group.wellIds.length ? group.wellIds.join(', ') : 'No wells'}</span>
                     <button className="text-button" onClick={() => removeGroup('standard', group.id)} type="button">Remove</button>
                   </div>
@@ -595,9 +663,27 @@ export default function App() {
                       <span className="sr-only">Select sample {group.name}</span>
                     </label>
                     <label htmlFor={`${group.id}-name`}>Name</label>
-                    <input id={`${group.id}-name`} onChange={(event) => updateSample(group.id, 'name', event.target.value)} type="text" value={group.name} />
+                    <input
+                      id={`${group.id}-name`}
+                      onChange={(event) =>
+                        updateGroupDraft('sampleNames', group.id, event.target.value)
+                      }
+                      type="text"
+                      value={groupDrafts.sampleNames[group.id] ?? group.name}
+                    />
                     <label htmlFor={`${group.id}-dilution`}>Dilution</label>
-                    <input id={`${group.id}-dilution`} min="0" onChange={(event) => updateSample(group.id, 'dilutionFactor', event.target.value)} type="number" value={group.dilutionFactor} />
+                    <input
+                      id={`${group.id}-dilution`}
+                      min="0"
+                      onChange={(event) =>
+                        updateGroupDraft('sampleDilutions', group.id, event.target.value)
+                      }
+                      type="number"
+                      value={
+                        groupDrafts.sampleDilutions[group.id] ??
+                        String(group.dilutionFactor)
+                      }
+                    />
                     <span className="well-list">{group.wellIds.length ? group.wellIds.join(', ') : 'No wells'}</span>
                     <button className="text-button" onClick={() => removeGroup('sample', group.id)} type="button">Remove</button>
                   </div>

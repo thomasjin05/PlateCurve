@@ -2,6 +2,16 @@ import Papa from 'papaparse'
 
 import type { PlateData } from '../types'
 
+const DECIMAL_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/
+
+function parseAbsorbance(cell: string): number | null {
+  const trimmed = cell.trim()
+  if (!DECIMAL_NUMBER.test(trimmed)) return null
+
+  const value = Number(trimmed)
+  return Number.isFinite(value) ? value : null
+}
+
 export function parsePlateCsv(csv: string): string[][] {
   const result = Papa.parse<string[]>(csv)
   const parseError = result.errors.find((error) => error.code !== 'UndetectableDelimiter')
@@ -21,7 +31,7 @@ export function extractPlate(
 
   if (!coordinates) {
     let best: { sourceRow: number; sourceColumn: number; score: number } | undefined
-    const widestRow = Math.max(0, ...rows.map((row) => row.length))
+    const widestRow = rows.reduce((width, row) => Math.max(width, row.length), 0)
 
     for (let sourceRow = 0; sourceRow <= rows.length - 8; sourceRow += 1) {
       for (let sourceColumn = 0; sourceColumn <= widestRow - 12; sourceColumn += 1) {
@@ -33,20 +43,20 @@ export function extractPlate(
             count +
             row
               .slice(sourceColumn, sourceColumn + 12)
-              .filter((cell) => cell.trim() !== '' && Number.isFinite(Number(cell))).length,
+              .filter((cell) => parseAbsorbance(cell) !== null).length,
           0,
         )
         if (numericCount < 72) continue
 
-        const hasColumnHeaders = Array.from(
+        const columnHeaderMatches = Array.from(
           { length: 12 },
           (_, column) => rows[sourceRow - 1]?.[sourceColumn + column] === String(column + 1),
-        ).every(Boolean)
-        const hasRowHeaders = Array.from(
+        ).filter(Boolean).length
+        const rowHeaderMatches = Array.from(
           { length: 8 },
           (_, row) => rows[sourceRow + row]?.[sourceColumn - 1] === String.fromCharCode(65 + row),
-        ).every(Boolean)
-        const score = numericCount + (hasColumnHeaders ? 100 : 0) + (hasRowHeaders ? 100 : 0)
+        ).filter(Boolean).length
+        const score = numericCount + columnHeaderMatches + rowHeaderMatches
 
         if (!best || score > best.score) best = { sourceRow, sourceColumn, score }
       }
@@ -81,13 +91,12 @@ export function extractPlate(
       const row = String.fromCharCode(65 + rowIndex)
       const column = columnIndex + 1
       const cell = rows[coordinates.sourceRow + rowIndex][coordinates.sourceColumn + columnIndex]
-      const value = Number(cell)
 
       return {
         id: `${row}${column}`,
         row,
         column,
-        rawAbsorbance: cell.trim() !== '' && Number.isFinite(value) ? value : null,
+        rawAbsorbance: parseAbsorbance(cell),
       }
     }),
   ).flat()

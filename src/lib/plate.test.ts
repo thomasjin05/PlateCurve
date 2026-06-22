@@ -53,6 +53,29 @@ test('maps empty and nonnumeric plate cells to null instead of zero', () => {
   expect(plate.wells[95].rawAbsorbance).toBeNull()
 })
 
+test('extracts only finite decimal and scientific absorbance values', () => {
+  const rows = Array.from({ length: 8 }, () => Array(12).fill('0'))
+  const accepted = [' 1 ', '-1', '+1.2', '.5', '1.', '1e-3', '-2.5E+2']
+  const rejected = ['', '   ', 'NaN', 'Infinity', '0x10', '0b10', '0o10', '0,5']
+  rows[0].splice(0, accepted.length, ...accepted)
+  rows[1].splice(0, rejected.length, ...rejected)
+
+  const plate = extractPlate(rows, { sourceRow: 0, sourceColumn: 0 })
+
+  expect(plate.wells.slice(0, accepted.length).map((well) => well.rawAbsorbance)).toEqual([
+    1,
+    -1,
+    1.2,
+    0.5,
+    1,
+    0.001,
+    -250,
+  ])
+  expect(plate.wells.slice(12, 12 + rejected.length).map((well) => well.rawAbsorbance)).toEqual(
+    Array(rejected.length).fill(null),
+  )
+})
+
 test('throws a clear error when a manual region extends outside the CSV grid', () => {
   const rows = Array.from({ length: 8 }, () => Array(12).fill('1'))
 
@@ -91,8 +114,71 @@ test('automatically detects a labeled 8 by 12 numeric region after metadata', ()
   expect(plate.wells[95].rawAbsorbance).toBe(96)
 })
 
+test('prefers 96 numeric cells over a fully labeled candidate with only 72', () => {
+  const headers = ['', ...Array.from({ length: 12 }, (_, column) => String(column + 1))]
+  const labeled72 = Array.from({ length: 8 }, (_, row) => [
+    String.fromCharCode(65 + row),
+    ...Array(12).fill(row < 6 ? '1' : ''),
+  ])
+  const gap = Array.from({ length: 8 }, () => Array(13).fill(''))
+  const unlabeled96 = Array.from({ length: 8 }, () => ['', ...Array(12).fill('2')])
+  const rows = [headers, ...labeled72, ...gap, ...unlabeled96]
+
+  const plate = extractPlate(rows)
+
+  expect(plate.sourceRow).toBe(17)
+  expect(plate.sourceColumn).toBe(1)
+})
+
+test('scores each matching row and column header individually', () => {
+  const unlabeled72 = Array.from({ length: 8 }, (_, row) => [
+    '',
+    ...Array(12).fill(row < 6 ? '1' : ''),
+  ])
+  const gap = Array.from({ length: 8 }, () => Array(13).fill(''))
+  const partialHeaders = ['', '1', ...Array(11).fill('')]
+  const partiallyLabeled72 = Array.from({ length: 8 }, (_, row) => [
+    row === 0 ? 'A' : '',
+    ...Array(12).fill(row < 6 ? '2' : ''),
+  ])
+  const rows = [...unlabeled72, ...gap, partialHeaders, ...partiallyLabeled72]
+
+  const plate = extractPlate(rows)
+
+  expect(plate.sourceRow).toBe(17)
+  expect(plate.sourceColumn).toBe(1)
+})
+
 test('throws when no automatic candidate has at least 72 numeric cells', () => {
   const rows = Array.from({ length: 8 }, () => Array(12).fill('not numeric'))
+
+  expect(() => extractPlate(rows)).toThrow('No likely 8 by 12 plate region was found.')
+})
+
+test('does not count nondecimal formats toward the 72-value detection threshold', () => {
+  const cells = [...Array(71).fill('1'), '0x10', ...Array(24).fill('')]
+  const rows = Array.from({ length: 8 }, (_, row) => cells.slice(row * 12, row * 12 + 12))
+
+  expect(() => extractPlate(rows)).toThrow('No likely 8 by 12 plate region was found.')
+})
+
+test('accepts an automatic candidate with exactly 72 decimal values', () => {
+  const values = ['1', '-1', '+1.2', '.5', '1.', '1e-3', '-2.5E+2']
+  const cells = [
+    ...Array.from({ length: 72 }, (_, index) => values[index % values.length]),
+    ...Array(24).fill(''),
+  ]
+  const rows = Array.from({ length: 8 }, (_, row) => cells.slice(row * 12, row * 12 + 12))
+
+  const plate = extractPlate(rows)
+
+  expect(plate.sourceRow).toBe(0)
+  expect(plate.sourceColumn).toBe(0)
+  expect(plate.wells.filter((well) => well.rawAbsorbance !== null)).toHaveLength(72)
+})
+
+test('handles many irregular rows without overflowing while measuring row width', () => {
+  const rows = Array.from({ length: 200_000 }, (_, index) => Array(index % 3).fill(''))
 
   expect(() => extractPlate(rows)).toThrow('No likely 8 by 12 plate region was found.')
 })

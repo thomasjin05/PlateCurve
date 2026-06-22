@@ -26,15 +26,27 @@ export interface AnalyzeInput {
   curve: CurveConfig
 }
 
+function calculateFiniteMean(values: number[], errorMessage: string): number {
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+  if (!Number.isFinite(mean)) {
+    throw new Error(errorMessage)
+  }
+  return mean
+}
+
 export function calculateBlankMean(values: number[]): number {
   if (values.length === 0) {
     throw new Error('At least one blank value is required.')
   }
-  return values.reduce((sum, value) => sum + value, 0) / values.length
+  return calculateFiniteMean(values, 'Blank mean must be finite.')
 }
 
 export function correctAbsorbance(raw: number, blank: number): number {
-  return raw - blank
+  const corrected = raw - blank
+  if (!Number.isFinite(corrected)) {
+    throw new Error('Corrected absorbance must be finite.')
+  }
+  return corrected
 }
 
 export function fitLinear(points: Point[]): LinearFit {
@@ -59,6 +71,9 @@ export function fitLinear(points: Point[]): LinearFit {
   )
   const totalSum = points.reduce((sum, point) => sum + (point.y - meanY) ** 2, 0)
   const rSquared = totalSum === 0 ? 1 : 1 - residualSum / totalSum
+  if (!Number.isFinite(intercept) || !Number.isFinite(rSquared)) {
+    throw new Error('Linear fit outputs must be finite.')
+  }
 
   return { model: 'linear', slope, intercept, rSquared }
 }
@@ -131,6 +146,12 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
     ) {
       throw new Error(`Standard well ${well.id} must reference a known standard group.`)
     }
+    if (assignment?.type === 'standard' && assignment.groupId) {
+      const group = standardGroups.get(assignment.groupId)!
+      if (!Number.isFinite(group.concentration)) {
+        throw new Error(`Standard group ${group.id} requires a finite concentration.`)
+      }
+    }
     if (
       assignment?.type === 'sample' &&
       (!assignment.groupId || !sampleGroups.has(assignment.groupId))
@@ -153,14 +174,23 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
   }
   const standardPoints = [...standardValues.entries()]
     .sort(([left], [right]) => left - right)
-    .map(([x, values]) => ({ x, y: calculateBlankMean(values) }))
+    .map(([x, values]) => ({
+      x,
+      y: calculateFiniteMean(
+        values,
+        `Standard concentration ${x} mean corrected absorbance must be finite.`,
+      ),
+    }))
   const fit = input.curve.mode === 'linear' ? fitLinear(standardPoints) : undefined
   if (fit && fit.rSquared < 0.98) {
     warnings.push('Linear R² is below 0.98.')
   }
   const standardWarnings = new Map<number, string>()
   for (const [concentration, values] of standardValues) {
-    const mean = calculateBlankMean(values)
+    const mean = calculateFiniteMean(
+      values,
+      `Standard concentration ${concentration} mean corrected absorbance must be finite.`,
+    )
     const variance =
       values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length
     const warning =
@@ -198,6 +228,13 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       sampleGroup && correctedAbsorbance !== null
         ? invertLinear(correctedAbsorbance, input.curve.mode === 'custom' ? input.curve : fit!)
         : null
+    let finalConcentration: number | null = null
+    if (calculatedConcentration !== null && sampleGroup) {
+      finalConcentration = calculatedConcentration * sampleGroup.dilutionFactor
+      if (!Number.isFinite(finalConcentration)) {
+        throw new Error(`Sample ${well.id} final concentration must be finite.`)
+      }
+    }
     const standardGroup =
       assignment?.type === 'standard' && assignment.groupId
         ? standardGroups.get(assignment.groupId)
@@ -229,10 +266,7 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       sampleName: sampleGroup?.name ?? '',
       calculatedConcentration,
       dilutionFactor: sampleGroup?.dilutionFactor ?? 1,
-      finalConcentration:
-        calculatedConcentration === null || !sampleGroup
-          ? null
-          : calculatedConcentration * sampleGroup.dilutionFactor,
+      finalConcentration,
       warningStatus: rowWarnings.join('; '),
     }
   })

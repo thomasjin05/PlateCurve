@@ -30,8 +30,20 @@ describe('analysis calculations', () => {
     expect(correctAbsorbance(1.2, blank)).toBeCloseTo(1)
   })
 
+  it('rejects a corrected absorbance that overflows', () => {
+    expect(() => correctAbsorbance(Number.MAX_VALUE, -Number.MAX_VALUE)).toThrow(
+      'Corrected absorbance must be finite.',
+    )
+  })
+
   it('rejects an empty blank selection', () => {
     expect(() => calculateBlankMean([])).toThrow('At least one blank value is required.')
+  })
+
+  it('rejects a blank mean that overflows', () => {
+    expect(() => calculateBlankMean([Number.MAX_VALUE, Number.MAX_VALUE])).toThrow(
+      'Blank mean must be finite.',
+    )
   })
 
   it('fits and inverts a linear calibration', () => {
@@ -70,6 +82,16 @@ describe('analysis calculations', () => {
     expect(() =>
       invertLinear(Number.POSITIVE_INFINITY, { slope: 1, intercept: 0 }),
     ).toThrow('Linear inverse result must be finite.')
+  })
+
+  it('rejects nonfinite linear fit outputs caused by overflow', () => {
+    expect(() =>
+      fitLinear([
+        { x: 0, y: 1e200 },
+        { x: 1, y: 3e200 },
+        { x: 2, y: 2e200 },
+      ]),
+    ).toThrow('Linear fit outputs must be finite.')
   })
 
   it('uses selected blank wells to correct every valid absorbance', () => {
@@ -275,6 +297,21 @@ describe('analysis calculations', () => {
     ).toThrow('Sample group sample-1 requires a finite dilution factor greater than zero.')
   })
 
+  it('rejects a final sample concentration that overflows', () => {
+    expect(() =>
+      analyzePlate({
+        wells: [well('A1', Number.MAX_VALUE)],
+        assignments: { A1: { type: 'sample', groupId: 'sample-1' } },
+        standardGroups: [],
+        sampleGroups: [
+          { id: 'sample-1', name: 'Patient 1', dilutionFactor: 2, wellIds: ['A1'] },
+        ],
+        blank: { mode: 'none' },
+        curve: { mode: 'custom', slope: 1, intercept: 0 },
+      }),
+    ).toThrow('Sample A1 final concentration must be finite.')
+  })
+
   it('rejects nonfinite blank and custom curve configuration', () => {
     const base = {
       wells: [well('A1', 1)],
@@ -304,5 +341,38 @@ describe('analysis calculations', () => {
         curve: { mode: 'custom', slope: 1, intercept: Number.POSITIVE_INFINITY },
       }),
     ).toThrow('Custom curve intercept must be finite.')
+  })
+
+  it('rejects a used standard group with a nonfinite concentration', () => {
+    for (const concentration of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        analyzePlate({
+          wells: [well('A1', 1)],
+          assignments: { A1: { type: 'standard', groupId: 'std-invalid' } },
+          standardGroups: [
+            { id: 'std-invalid', concentration, wellIds: ['A1'] },
+          ],
+          sampleGroups: [],
+          blank: { mode: 'none' },
+          curve: { mode: 'custom', slope: 1, intercept: 0 },
+        }),
+      ).toThrow('Standard group std-invalid requires a finite concentration.')
+    }
+  })
+
+  it('rejects a standard replicate mean that overflows', () => {
+    expect(() =>
+      analyzePlate({
+        wells: [well('A1', Number.MAX_VALUE), well('A2', Number.MAX_VALUE)],
+        assignments: {
+          A1: { type: 'standard', groupId: 'std-1' },
+          A2: { type: 'standard', groupId: 'std-1' },
+        },
+        standardGroups: [{ id: 'std-1', concentration: 1, wellIds: ['A1', 'A2'] }],
+        sampleGroups: [],
+        blank: { mode: 'none' },
+        curve: { mode: 'custom', slope: 1, intercept: 0 },
+      }),
+    ).toThrow('Standard concentration 1 mean corrected absorbance must be finite.')
   })
 })

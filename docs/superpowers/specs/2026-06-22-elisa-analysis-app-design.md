@@ -62,9 +62,9 @@ Desktop keeps the step rail fixed beside the workspace. Narrow screens move the 
 
 ## CSV Detection
 
-Papa Parse returns a rectangular array after padding short rows with empty strings. Detection scans candidate cells for an 8 by 12 numeric block. It scores candidates higher when the cell above the block contains column headers 1 through 12 and the cells to the left contain row headers A through H. The highest-scoring complete block becomes the preview.
+Papa Parse returns a rectangular array after padding short rows with empty strings. Detection scans candidate cells for an 8 by 12 region and scores its numeric cells. It scores candidates higher when the cell above the region contains column headers 1 through 12 and the cells to the left contain row headers A through H. The highest-scoring region with at least 72 numeric cells becomes the preview.
 
-The app reports a clear parsing error when it finds no complete numeric block. The researcher can then enter the source row and column of the top-left absorbance cell. Manual selection still requires 8 rows and 12 columns of numeric values. Blank cells inside that region remain visible as invalid wells and cannot receive an assignment.
+The app reports a clear parsing error when it finds no likely plate region. The researcher can then enter the source row and column of the top-left absorbance cell. Manual selection requires an 8 by 12 region. Empty or nonnumeric cells inside that region remain visible as invalid wells and cannot receive an assignment.
 
 ## Calculations
 

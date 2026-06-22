@@ -40,6 +40,7 @@ export interface FourPLFit {
   b: number
   c: number
   d: number
+  rSquared?: number
 }
 
 export interface ResultRow {

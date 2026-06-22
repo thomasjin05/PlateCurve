@@ -95,6 +95,16 @@ describe('analysis calculations', () => {
     )
   })
 
+  it('reports R² for a fitted 4PL curve', () => {
+    const source = { model: '4pl' as const, a: 2.4, b: 1.3, c: 10, d: 0.2 }
+    const points = [0, 1, 3, 10, 30, 100].map((x) => ({
+      x,
+      y: evaluateFourPL(x, source),
+    }))
+
+    expect(fitFourPL(points).rSquared).toBeCloseTo(1, 6)
+  })
+
   it('fits the same exact 4PL curve independently of concentration units', () => {
     const concentrations = [0, 0.01, 0.03, 0.1, 0.3, 1, 3, 10]
 
@@ -306,15 +316,51 @@ describe('analysis calculations', () => {
     expect(result.rows.map((row) => row.correctedAbsorbance)).toEqual([
       -0.1,
       0.09999999999999998,
-      0.8,
+      null,
       null,
     ])
+  })
+
+  it('does not calculate values or warnings for unused wells', () => {
+    const result = analyzePlate({
+      wells: [well('A1', 0.1), well('A2', 1.5)],
+      assignments: { A1: { type: 'blank' } },
+      standardGroups: [],
+      sampleGroups: [],
+      blank: { mode: 'selected' },
+      curve: { mode: 'custom', slope: 1, intercept: 0 },
+    })
+
+    expect(result.rows[1]).toMatchObject({
+      wellId: 'A2',
+      rawAbsorbance: 0,
+      correctedAbsorbance: null,
+      assignmentType: 'unused',
+      calculatedConcentration: null,
+      finalConcentration: null,
+      warningStatus: '',
+    })
+  })
+
+  it('uses the designated concentration as the standard calculated concentration', () => {
+    const result = analyzePlate({
+      wells: [well('A1', 0.5)],
+      assignments: { A1: { type: 'standard', groupId: 'standard-1' } },
+      standardGroups: [
+        { id: 'standard-1', concentration: 25, wellIds: ['A1'] },
+      ],
+      sampleGroups: [],
+      blank: { mode: 'none' },
+      curve: { mode: 'custom', slope: 1, intercept: 0 },
+    })
+
+    expect(result.rows[0].calculatedConcentration).toBe(25)
   })
 
   it('uses a manual blank value and records its provenance', () => {
     const result = analyzePlate({
       wells: [well('A1', 1)],
-      assignments: {},
+      assignments: { A1: { type: 'blank' } },
       standardGroups: [],
       sampleGroups: [],
       blank: { mode: 'manual', value: 0.25 },
@@ -330,7 +376,7 @@ describe('analysis calculations', () => {
   it('can skip blank correction with an explicit warning', () => {
     const result = analyzePlate({
       wells: [well('A1', 1)],
-      assignments: {},
+      assignments: { A1: { type: 'blank' } },
       standardGroups: [],
       sampleGroups: [],
       blank: { mode: 'none' },
@@ -403,7 +449,7 @@ describe('analysis calculations', () => {
       finalConcentration: 15,
     })
     expect(result.rows[95]).toMatchObject({
-      rawAbsorbance: null,
+      rawAbsorbance: 0,
       correctedAbsorbance: null,
       calculatedConcentration: null,
       finalConcentration: null,
@@ -541,7 +587,7 @@ describe('analysis calculations', () => {
     expect(result.summary.warnings).toContain(warning)
   })
 
-  it('reports linear fit, replicate, and sample range warnings on affected rows', () => {
+  it('reports replicate and sample range warnings without a low-R² warning', () => {
     const result = analyzePlate({
       wells: [
         well('A1', 0),
@@ -573,7 +619,8 @@ describe('analysis calculations', () => {
       curve: { mode: 'linear' },
     })
 
-    expect(result.warnings).toContain('Linear R² is below 0.98.')
+    expect(result.summary.rSquared).toBeLessThan(0.98)
+    expect(result.warnings).not.toContain('Linear R² is below 0.98.')
     expect(result.warnings).toContain('Standard concentration 1 has replicate CV above 20%.')
     expect(result.warnings).toContain(
       'Sample A7 corrected absorbance is outside the observed standard response range.',
@@ -584,7 +631,7 @@ describe('analysis calculations', () => {
     expect(new Set(result.warnings).size).toBe(result.warnings.length)
   })
 
-  it('propagates a low linear R-squared warning to calculated sample rows', () => {
+  it('retains low linear R² as a metric without warning rows', () => {
     const result = analyzePlate({
       wells: [well('A1', 0), well('A2', 2), well('A3', 2), well('A4', 1)],
       assignments: {
@@ -605,8 +652,9 @@ describe('analysis calculations', () => {
       curve: { mode: 'linear' },
     })
 
-    expect(result.warnings).toContain('Linear R² is below 0.98.')
-    expect(result.rows[3].warningStatus).toContain('Linear R² is below 0.98.')
+    expect(result.summary.rSquared).toBeLessThan(0.98)
+    expect(result.warnings).not.toContain('Linear R² is below 0.98.')
+    expect(result.rows.every((row) => !row.warningStatus.includes('R²'))).toBe(true)
   })
 
   it('rejects assignments without known group metadata', () => {

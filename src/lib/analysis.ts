@@ -232,6 +232,22 @@ export function fitFourPL(points: Point[]): FourPLFit {
     ) {
       throw new Error('Nonfinite 4PL result.')
     }
+    const meanY = calculateFiniteMean(
+      uniquePoints.map((point) => point.y),
+      '4PL responses must have a finite mean.',
+    )
+    const residualSum = uniquePoints.reduce(
+      (sum, point) => sum + (point.y - evaluateFourPL(point.x, fit)) ** 2,
+      0,
+    )
+    const totalSum = uniquePoints.reduce(
+      (sum, point) => sum + (point.y - meanY) ** 2,
+      0,
+    )
+    fit.rSquared = totalSum === 0 ? 1 : 1 - residualSum / totalSum
+    if (!Number.isFinite(fit.rSquared)) {
+      throw new Error('Invalid 4PL fit quality.')
+    }
     return fit
   } catch {
     throw new Error('4PL fitting did not converge.')
@@ -361,9 +377,6 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
   if (input.curve.mode === '4pl' && standardPoints.length < 6) {
     warnings.push('4PL fitting has fewer than 6 unique standard concentrations.')
   }
-  if (fit?.model === 'linear' && fit.rSquared < 0.98) {
-    warnings.push('Linear R² is below 0.98.')
-  }
   const standardWarnings = new Map<number, string>()
   for (const [concentration, values] of standardValues) {
     const mean = calculateFiniteMean(
@@ -392,6 +405,22 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       : `${standardPoints[0].x} to ${standardPoints[standardPoints.length - 1].x}`
   const rows: ResultRow[] = input.wells.map((well) => {
     const assignment = input.assignments[well.id]
+    if (!assignment) {
+      return {
+        wellId: well.id,
+        row: well.row,
+        column: well.column,
+        rawAbsorbance: 0,
+        correctedAbsorbance: null,
+        assignmentType: 'unused',
+        standardConcentration: null,
+        sampleName: '',
+        calculatedConcentration: null,
+        dilutionFactor: 1,
+        finalConcentration: null,
+        warningStatus: '',
+      }
+    }
     const rawAbsorbance =
       well.rawAbsorbance !== null && Number.isFinite(well.rawAbsorbance)
         ? well.rawAbsorbance
@@ -403,8 +432,13 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       assignment?.type === 'sample' && assignment.groupId
         ? sampleGroups.get(assignment.groupId)
         : undefined
-    const calculatedConcentration =
-      sampleGroup && correctedAbsorbance !== null
+    const standardGroup =
+      assignment?.type === 'standard' && assignment.groupId
+        ? standardGroups.get(assignment.groupId)
+        : undefined
+    const calculatedConcentration = standardGroup
+      ? standardGroup.concentration
+      : sampleGroup && correctedAbsorbance !== null
         ? input.curve.mode === '4pl'
           ? invertFourPL(correctedAbsorbance, fit as FourPLFit)
           : invertLinear(
@@ -419,22 +453,10 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
         throw new Error(`Sample ${well.id} final concentration must be finite.`)
       }
     }
-    const standardGroup =
-      assignment?.type === 'standard' && assignment.groupId
-        ? standardGroups.get(assignment.groupId)
-        : undefined
     const rowWarnings: string[] = []
     if (standardGroup) {
       const warning = standardWarnings.get(standardGroup.concentration)
       if (warning) rowWarnings.push(warning)
-    }
-    if (
-      fit?.model === 'linear' &&
-      sampleGroup &&
-      calculatedConcentration !== null &&
-      fit.rSquared < 0.98
-    ) {
-      rowWarnings.push('Linear R² is below 0.98.')
     }
     if (
       fit &&
@@ -478,7 +500,7 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       ...(fit
         ? fit.model === 'linear'
           ? { slope: fit.slope, intercept: fit.intercept, rSquared: fit.rSquared }
-          : { a: fit.a, b: fit.b, c: fit.c, d: fit.d }
+          : { a: fit.a, b: fit.b, c: fit.c, d: fit.d, rSquared: fit.rSquared }
         : input.curve.mode === 'custom'
         ? { slope: input.curve.slope, intercept: input.curve.intercept }
         : {}),

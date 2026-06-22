@@ -58,11 +58,11 @@ The third sheet and the downloadable results CSV share this column order:
 3. `corrected_absorbance`
 4. `assignment_type`
 5. `calculated_concentration`
-6. `dilution_factor`
-7. `final_concentration`
-8. `warning_status`
+6. `final_concentration`
+7. `dilution_factor`
 
-The redundant `row`, `column`, and `standard_concentration` columns are removed.
+
+The redundant `row`, `column`, 'warning_status', and `standard_concentration` columns are removed.
 
 Assignment values are:
 

@@ -77,7 +77,7 @@ describe('CurveChart', () => {
 describe('ResultsView', () => {
   it('shows warnings before summary and the complete standardized result table', () => {
     const result: AnalysisResult = {
-      warnings: ['Linear R² is below 0.98.'],
+      warnings: ['Manual blank value used.'],
       summary: {
         model: 'linear',
         blankMean: 0.1,
@@ -87,7 +87,7 @@ describe('ResultsView', () => {
         slope: 0.1,
         intercept: 0.05,
         rSquared: 0.97,
-        warnings: ['Linear R² is below 0.98.'],
+        warnings: ['Manual blank value used.'],
       },
       fit: { model: 'linear', slope: 0.1, intercept: 0.05, rSquared: 0.97 },
       rows: [
@@ -125,20 +125,15 @@ describe('ResultsView', () => {
     const markup = renderToStaticMarkup(<ResultsView result={result} />)
     const headers = [
       'well_id',
-      'row',
-      'column',
       'raw_absorbance',
       'corrected_absorbance',
       'assignment_type',
-      'standard_concentration',
-      'sample_name',
       'calculated_concentration',
-      'dilution_factor',
       'final_concentration',
-      'warning_status',
+      'dilution_factor',
     ]
 
-    expect(markup.indexOf('Linear R² is below 0.98.')).toBeLessThan(
+    expect(markup.indexOf('Manual blank value used.')).toBeLessThan(
       markup.indexOf('Results summary'),
     )
     expect(markup.indexOf('Results summary')).toBeLessThan(markup.indexOf('<table'))
@@ -156,6 +151,6 @@ describe('ResultsView', () => {
       previousIndex = index
     }
     expect(markup).toContain('>A1<')
-    expect(markup).toContain('>Replicate CV above 20%.<')
+    expect(markup).not.toContain('>warning_status<')
   })
 })

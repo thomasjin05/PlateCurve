@@ -1,4 +1,4 @@
-import { RESULT_COLUMNS } from '../lib/export'
+import { RESULT_COLUMNS, resultToExportRow } from '../lib/export'
 import type { AnalysisResult, Assignment, ResultRow } from '../types'
 import { CurveChart } from './CurveChart'
 import { PlateGrid } from './PlateGrid'
@@ -13,20 +13,9 @@ function formatNumber(value: number | null | undefined): string {
 }
 
 function resultCells(row: ResultRow): string[] {
-  return [
-    row.wellId,
-    row.row,
-    String(row.column),
-    formatNumber(row.rawAbsorbance),
-    formatNumber(row.correctedAbsorbance),
-    row.assignmentType,
-    formatNumber(row.standardConcentration),
-    row.sampleName,
-    formatNumber(row.calculatedConcentration),
-    formatNumber(row.dilutionFactor),
-    formatNumber(row.finalConcentration),
-    row.warningStatus,
-  ]
+  return resultToExportRow(row).map((cell) =>
+    typeof cell === 'number' ? formatNumber(cell) : (cell ?? ''),
+  )
 }
 
 export function ResultsView({ result }: ResultsViewProps) {

@@ -4,34 +4,34 @@ import type { CurveSummary, ResultRow } from '../types'
 
 export const RESULT_COLUMNS = [
   'well_id',
-  'row',
-  'column',
   'raw_absorbance',
   'corrected_absorbance',
   'assignment_type',
-  'standard_concentration',
-  'sample_name',
   'calculated_concentration',
-  'dilution_factor',
   'final_concentration',
-  'warning_status',
+  'dilution_factor',
 ] as const
 
-export function resultsToCsv(rows: ResultRow[]): string {
-  const data = rows.map((row) => [
+export function resultToExportRow(row: ResultRow): Array<string | number | null> {
+  if (row.assignmentType === 'unused') {
+    return [row.wellId, 0, null, '', null, null, null]
+  }
+
+  return [
     row.wellId,
-    row.row,
-    row.column,
     row.rawAbsorbance,
     row.correctedAbsorbance,
-    row.assignmentType,
-    row.standardConcentration,
-    row.sampleName,
-    row.calculatedConcentration,
-    row.dilutionFactor,
+    row.assignmentType === 'sample' ? row.sampleName : row.assignmentType,
+    row.assignmentType === 'standard'
+      ? row.standardConcentration
+      : row.calculatedConcentration,
     row.finalConcentration,
-    row.warningStatus,
-  ])
+    row.assignmentType === 'sample' ? row.dilutionFactor : null,
+  ]
+}
+
+export function resultsToCsv(rows: ResultRow[]): string {
+  const data = rows.map(resultToExportRow)
 
   return Papa.unparse({ fields: [...RESULT_COLUMNS], data }, { escapeFormulae: true })
 }
@@ -54,6 +54,7 @@ export function summaryToCsv(summary: CurveSummary): string {
     )
   } else if (summary.model === '4pl') {
     data.push(
+      ['r_squared', summary.rSquared],
       ['a', summary.a],
       ['b', summary.b],
       ['c', summary.c],

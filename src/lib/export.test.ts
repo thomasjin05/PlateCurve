@@ -6,17 +6,12 @@ import { downloadCsv, resultsToCsv, summaryToCsv } from './export'
 
 const expectedResultColumns = [
   'well_id',
-  'row',
-  'column',
   'raw_absorbance',
   'corrected_absorbance',
   'assignment_type',
-  'standard_concentration',
-  'sample_name',
   'calculated_concentration',
-  'dilution_factor',
   'final_concentration',
-  'warning_status',
+  'dilution_factor',
 ]
 
 function parseCsv(csv: string): string[][] {
@@ -72,17 +67,12 @@ describe('results CSV export', () => {
   it('exports every result field in standardized column order', () => {
     expect(parseCsv(resultsToCsv([resultRow()]))[1]).toEqual([
       'A1',
-      'A',
-      '1',
       '1.25',
       '1.15',
-      'sample',
-      '',
       'Patient 1',
       '12.5',
-      '4',
       '50',
-      'Above standard range',
+      '4',
     ])
   })
 
@@ -97,12 +87,11 @@ describe('results CSV export', () => {
     })
 
     const parsed = parseCsv(resultsToCsv([row]))[1]
-    expect(parsed[3]).toBe('')
-    expect(parsed[4]).toBe('0')
+    expect(parsed[1]).toBe('')
+    expect(parsed[2]).toBe('0')
+    expect(parsed[4]).toBe('')
+    expect(parsed[5]).toBe('0')
     expect(parsed[6]).toBe('0')
-    expect(parsed[8]).toBe('')
-    expect(parsed[9]).toBe('0')
-    expect(parsed[10]).toBe('0')
   })
 
   it('round-trips commas, quotes, and newlines while preserving row order', () => {
@@ -116,9 +105,37 @@ describe('results CSV export', () => {
 
     const parsed = parseCsv(resultsToCsv(rows))
     expect(parsed[1][0]).toBe('A1')
-    expect(parsed[1][7]).toBe('Doe, "Jane"\nFollow-up')
-    expect(parsed[1][11]).toBe('Check, repeat\nOperator said "urgent"')
+    expect(parsed[1][3]).toBe('Doe, "Jane"\nFollow-up')
     expect(parsed[2][0]).toBe('B2')
+  })
+
+  it('uses sample names, standard concentrations, and blank unused fields', () => {
+    const rows = [
+      resultRow({ sampleName: 'protein' }),
+      resultRow({
+        wellId: 'A2',
+        assignmentType: 'standard',
+        sampleName: '',
+        standardConcentration: 10,
+        calculatedConcentration: 10,
+      }),
+      resultRow({
+        wellId: 'A3',
+        assignmentType: 'unused',
+        rawAbsorbance: 0,
+        correctedAbsorbance: null,
+        sampleName: '',
+        calculatedConcentration: null,
+        finalConcentration: null,
+        warningStatus: '',
+      }),
+    ]
+
+    const parsed = parseCsv(resultsToCsv(rows))
+    expect(parsed[1][3]).toBe('protein')
+    expect(parsed[2][3]).toBe('standard')
+    expect(parsed[2][4]).toBe('10')
+    expect(parsed[3]).toEqual(['A3', '0', '', '', '', '', ''])
   })
 
   it('escapes formula-leading result text without changing negative numbers', () => {
@@ -144,15 +161,12 @@ describe('results CSV export', () => {
     formulas.forEach((formula, index) => {
       const parsedRow = parsed[index + 1]
       const rawCells = rawRows[index].split(',')
-      expect(parsedRow[7]).toBe(`'${formula}`)
-      expect(parsedRow[11]).toBe(`'${formula}`)
-      expect(rawCells[7]).not.toMatch(/^"?[=+\-@]/)
-      expect(rawCells[11]).not.toMatch(/^"?[=+\-@]/)
-      expect(parsedRow[3]).toBe('-1.25')
-      expect(parsedRow[4]).toBe('-0.5')
-      expect(parsedRow[6]).toBe('-10')
-      expect(parsedRow[8]).toBe('-2')
-      expect(parsedRow[10]).toBe('-8')
+      expect(parsedRow[3]).toBe(`'${formula}`)
+      expect(rawCells[3]).not.toMatch(/^"?[=+\-@]/)
+      expect(parsedRow[1]).toBe('-1.25')
+      expect(parsedRow[2]).toBe('-0.5')
+      expect(parsedRow[4]).toBe('-2')
+      expect(parsedRow[5]).toBe('-8')
     })
   })
 })
@@ -185,7 +199,7 @@ describe('summary CSV export', () => {
           model: '4pl',
           slope: undefined,
           intercept: undefined,
-          rSquared: undefined,
+          rSquared: 0.995,
           a: 2.4,
           b: 1.3,
           c: 10,
@@ -198,7 +212,7 @@ describe('summary CSV export', () => {
     expect(metrics.get('b')).toBe('1.3')
     expect(metrics.get('c')).toBe('10')
     expect(metrics.get('d')).toBe('0.2')
-    expect(metrics.has('r_squared')).toBe(false)
+    expect(metrics.get('r_squared')).toBe('0.995')
     expect(metrics.has('slope')).toBe(false)
     expect(metrics.has('intercept')).toBe(false)
   })

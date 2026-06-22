@@ -1,5 +1,3 @@
-import { readSheet } from 'read-excel-file/browser'
-
 import { parsePlateCsv } from './plate'
 
 export type ImportedTable = {
@@ -43,6 +41,7 @@ export async function parseInputFile(file: File): Promise<ImportedTable> {
 
   if (name.endsWith('.xlsx') || mime === XLSX_MIME) {
     try {
+      const { readSheet } = await import('read-excel-file/browser')
       const rows = await readSheet<string>(file, { parseNumber: (value) => value })
       return { rows: normalizeSpreadsheetRows(rows), format: 'xlsx' }
     } catch (error) {

@@ -1,4 +1,4 @@
-import type { Worksheet, Workbook } from 'exceljs'
+import ExcelJS, { type Worksheet, type Workbook } from 'exceljs'
 
 import type { AnalysisResult, CurveSummary, ResultRow } from '../types'
 import { RESULT_COLUMNS, resultToExportRow } from './export'
@@ -145,7 +145,6 @@ function addWellDataSheet(workbook: Workbook, result: AnalysisResult): void {
 }
 
 export async function buildExcelWorkbook(input: ExcelExportInput): Promise<Uint8Array> {
-  const ExcelJS = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
 
   if (input.imported.format === 'xlsx') {

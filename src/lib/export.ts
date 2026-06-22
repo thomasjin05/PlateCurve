@@ -33,7 +33,7 @@ export function resultsToCsv(rows: ResultRow[]): string {
     row.warningStatus,
   ])
 
-  return Papa.unparse({ fields: [...RESULT_COLUMNS], data })
+  return Papa.unparse({ fields: [...RESULT_COLUMNS], data }, { escapeFormulae: true })
 }
 
 export function summaryToCsv(summary: CurveSummary): string {
@@ -63,7 +63,7 @@ export function summaryToCsv(summary: CurveSummary): string {
     data.push(['slope', summary.slope], ['intercept', summary.intercept])
   }
 
-  return Papa.unparse({ fields: ['metric', 'value'], data })
+  return Papa.unparse({ fields: ['metric', 'value'], data }, { escapeFormulae: true })
 }
 
 export function downloadCsv(filename: string, csv: string): void {

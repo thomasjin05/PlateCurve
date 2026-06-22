@@ -120,6 +120,41 @@ describe('results CSV export', () => {
     expect(parsed[1][11]).toBe('Check, repeat\nOperator said "urgent"')
     expect(parsed[2][0]).toBe('B2')
   })
+
+  it('escapes formula-leading result text without changing negative numbers', () => {
+    const formulas = ['=1+1', '+2', '-3', '@SUM(A1)']
+    const rows = formulas.map((formula, index) =>
+      resultRow({
+        wellId: `A${index + 1}`,
+        column: index + 1,
+        rawAbsorbance: -1.25,
+        correctedAbsorbance: -0.5,
+        standardConcentration: -10,
+        sampleName: formula,
+        calculatedConcentration: -2,
+        finalConcentration: -8,
+        warningStatus: formula,
+      }),
+    )
+
+    const csv = resultsToCsv(rows)
+    const parsed = parseCsv(csv)
+    const rawRows = csv.split(/\r?\n/).slice(1)
+
+    formulas.forEach((formula, index) => {
+      const parsedRow = parsed[index + 1]
+      const rawCells = rawRows[index].split(',')
+      expect(parsedRow[7]).toBe(`'${formula}`)
+      expect(parsedRow[11]).toBe(`'${formula}`)
+      expect(rawCells[7]).not.toMatch(/^"?[=+\-@]/)
+      expect(rawCells[11]).not.toMatch(/^"?[=+\-@]/)
+      expect(parsedRow[3]).toBe('-1.25')
+      expect(parsedRow[4]).toBe('-0.5')
+      expect(parsedRow[6]).toBe('-10')
+      expect(parsedRow[8]).toBe('-2')
+      expect(parsedRow[10]).toBe('-8')
+    })
+  })
 })
 
 describe('summary CSV export', () => {
@@ -189,6 +224,16 @@ describe('summary CSV export', () => {
     expect(metrics.get('intercept')).toBe('0.25')
     expect(metrics.has('r_squared')).toBe(false)
     expect(metrics.get('warning_messages')).toBe(warnings.join('\n'))
+  })
+
+  it('escapes formula-leading summary warnings', () => {
+    for (const warning of ['=1+1', '+2', '-3', '@SUM(A1)']) {
+      const csv = summaryToCsv(summary({ warnings: [warning] }))
+      const warningRow = csv.split(/\r?\n/).find((row) => row.startsWith('warning_messages,'))
+
+      expect(parseMetrics(csv).get('warning_messages')).toBe(`'${warning}`)
+      expect(warningRow).not.toMatch(/^warning_messages,"?[=+\-@]/)
+    }
   })
 })
 

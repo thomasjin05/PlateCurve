@@ -82,7 +82,6 @@ export function ResultsView({ result }: ResultsViewProps) {
             <>
               <div><dt>Slope</dt><dd>{formatNumber(summary.slope)}</dd></div>
               <div><dt>Intercept</dt><dd>{formatNumber(summary.intercept)}</dd></div>
-              <div><dt>R²</dt><dd>{formatNumber(summary.rSquared)}</dd></div>
             </>
           )}
           {summary.model === '4pl' && (
@@ -98,6 +97,9 @@ export function ResultsView({ result }: ResultsViewProps) {
               <div><dt>Slope</dt><dd>{formatNumber(summary.slope)}</dd></div>
               <div><dt>Intercept</dt><dd>{formatNumber(summary.intercept)}</dd></div>
             </>
+          )}
+          {summary.rSquared !== undefined && (
+            <div><dt>R²</dt><dd>{formatNumber(summary.rSquared)}</dd></div>
           )}
         </dl>
       </section>

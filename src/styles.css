@@ -108,17 +108,27 @@ h2 {
 }
 
 .workflow-rail li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   min-height: 44px;
-  padding: 8px 10px;
   color: #d7e5e1;
   border-radius: 7px;
   white-space: nowrap;
 }
 
-.workflow-rail li span {
+.workflow-step-button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+}
+
+.workflow-step-number {
   display: inline-grid;
   width: 24px;
   height: 24px;
@@ -130,8 +140,11 @@ h2 {
 
 .workflow-rail li.active {
   color: #fff;
-  background: #2d6b5e;
   font-weight: 650;
+}
+
+.workflow-rail li.active .workflow-step-button {
+  background: #2d6b5e;
 }
 
 .workflow-rail li.complete {
@@ -534,6 +547,14 @@ legend {
   gap: 6px;
 }
 
+.equation-help {
+  max-width: 760px;
+  padding-left: 28px;
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
 .results-view {
   min-width: 0;
 }
@@ -700,7 +721,7 @@ tbody tr:nth-child(even) td {
     margin: 0;
   }
 
-  .workflow-rail li {
+  .workflow-step-button {
     padding-inline: 9px;
   }
 
@@ -716,6 +737,10 @@ tbody tr:nth-child(even) td {
 
   .custom-fields {
     display: grid;
+    padding-left: 0;
+  }
+
+  .equation-help {
     padding-left: 0;
   }
 }

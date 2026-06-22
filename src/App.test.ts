@@ -1,6 +1,11 @@
 import { expect, test } from 'vitest'
 
-import { countUniqueAssignedStandardConcentrations, resolveGroupDrafts } from './App'
+import {
+  CUSTOM_EQUATION_HELP,
+  countUniqueAssignedStandardConcentrations,
+  maximumReachableStep,
+  resolveGroupDrafts,
+} from './App'
 import type { SampleGroup, StandardGroup } from './types'
 
 test('duplicate assigned standard concentrations count once for the 4PL warning', () => {
@@ -63,4 +68,17 @@ test('group drafts reject intermediate or empty scientific inputs', () => {
       sampleDilutions: { 'sample-1': '' },
     }),
   ).toThrow('Sample sample-1 dilution factor must be greater than zero.')
+})
+
+test('workflow steps become reachable as analysis state is created', () => {
+  expect(maximumReachableStep({ imported: false, plate: false, result: false })).toBe(1)
+  expect(maximumReachableStep({ imported: true, plate: false, result: false })).toBe(2)
+  expect(maximumReachableStep({ imported: true, plate: true, result: false })).toBe(4)
+  expect(maximumReachableStep({ imported: true, plate: true, result: true })).toBe(6)
+})
+
+test('custom equation help defines x and y', () => {
+  expect(CUSTOM_EQUATION_HELP).toContain('Corrected absorbance (y)')
+  expect(CUSTOM_EQUATION_HELP).toContain('concentration (x)')
+  expect(CUSTOM_EQUATION_HELP).toContain('solves this equation for x')
 })

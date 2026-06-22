@@ -153,4 +153,31 @@ describe('ResultsView', () => {
     expect(markup).toContain('>A1<')
     expect(markup).not.toContain('>warning_status<')
   })
+
+  it('shows fitted 4PL R² without a low-R² warning', () => {
+    const result: AnalysisResult = {
+      warnings: [],
+      summary: {
+        model: '4pl',
+        blankMean: 0.1,
+        blankCount: 2,
+        standardWellCount: 6,
+        standardRange: '0 to 100',
+        a: 2.4,
+        b: 1.3,
+        c: 10,
+        d: 0.2,
+        rSquared: 0.995,
+        warnings: [],
+      },
+      fit: { model: '4pl', a: 2.4, b: 1.3, c: 10, d: 0.2, rSquared: 0.995 },
+      rows: [],
+    }
+
+    const markup = renderToStaticMarkup(<ResultsView result={result} />)
+
+    expect(markup).toContain('>R²<')
+    expect(markup).toContain('>0.995<')
+    expect(markup).not.toContain('below 0.98')
+  })
 })

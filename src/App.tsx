@@ -25,6 +25,20 @@ const STEPS = [
   'Export',
 ] as const
 
+export const CUSTOM_EQUATION_HELP =
+  'Corrected absorbance (y) = slope (m) × concentration (x) + intercept (b). The app solves this equation for x to calculate sample concentration.'
+
+export function maximumReachableStep(state: {
+  imported: boolean
+  plate: boolean
+  result: boolean
+}): number {
+  if (state.result) return 6
+  if (state.plate) return 4
+  if (state.imported) return 2
+  return 1
+}
+
 type Tool = AssignmentType | 'clear'
 
 type AssignmentWorkspace = {
@@ -185,6 +199,7 @@ export default function App() {
   const [step, setStep] = useState(1)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [fileName, setFileName] = useState('')
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [imported, setImported] = useState<ImportedTable | null>(null)
   const [plate, setPlate] = useState<PlateData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -207,6 +222,8 @@ export default function App() {
   const [customIntercept, setCustomIntercept] = useState('')
   const [analysisError, setAnalysisError] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [excelExporting, setExcelExporting] = useState(false)
+  const [excelExportError, setExcelExportError] = useState('')
 
   const resetAfterPlate = () => {
     setWorkspace(EMPTY_WORKSPACE)
@@ -229,10 +246,13 @@ export default function App() {
     setStep(1)
     setFileInputKey((value) => value + 1)
     setFileName('')
+    setSourceFile(null)
     setImported(null)
     setPlate(null)
     setLoading(false)
     setUploadError('')
+    setExcelExporting(false)
+    setExcelExportError('')
     setRegionOpen(false)
     setRegionRow('1')
     setRegionColumn('1')
@@ -246,6 +266,7 @@ export default function App() {
 
     setStep(1)
     setFileName(file.name)
+    setSourceFile(null)
     setImported(null)
     setPlate(null)
     setLoading(true)
@@ -258,6 +279,7 @@ export default function App() {
 
     try {
       const table = await parseInputFile(file)
+      setSourceFile(file)
       setImported(table)
       try {
         const detected = extractPlate(table.rows)
@@ -481,6 +503,30 @@ export default function App() {
     '-',
   )
 
+  const exportExcel = async () => {
+    if (!sourceFile || !imported || !result) {
+      setExcelExportError('Load and analyze a plate before exporting Excel.')
+      return
+    }
+    setExcelExporting(true)
+    setExcelExportError('')
+    try {
+      const { buildExcelWorkbook, downloadExcel } = await import('./lib/excel-export')
+      const bytes = await buildExcelWorkbook({ sourceFile, imported, result })
+      downloadExcel(`${baseName}-analysis.xlsx`, bytes)
+    } catch (error) {
+      setExcelExportError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setExcelExporting(false)
+    }
+  }
+
+  const reachableStep = maximumReachableStep({
+    imported: imported !== null,
+    plate: plate !== null,
+    result: result !== null,
+  })
+
   return (
     <div className="app-shell">
       <aside className="workflow-rail" aria-label="Analysis steps">
@@ -490,11 +536,18 @@ export default function App() {
             const number = index + 1
             return (
               <li
-                aria-current={step === number ? 'step' : undefined}
                 className={step === number ? 'active' : step > number ? 'complete' : ''}
                 key={label}
               >
-                <span>{number}</span>{label}
+                <button
+                  aria-current={step === number ? 'step' : undefined}
+                  className="workflow-step-button"
+                  disabled={number > reachableStep}
+                  onClick={() => setStep(number)}
+                  type="button"
+                >
+                  <span className="workflow-step-number">{number}</span>{label}
+                </button>
               </li>
             )
           })}
@@ -738,10 +791,13 @@ export default function App() {
               <label className="radio-option"><input checked={curveMode === '4pl'} name="curve-mode" onChange={() => setCurveMode('4pl')} type="radio" />4PL</label>
               <label className="radio-option"><input checked={curveMode === 'custom'} name="curve-mode" onChange={() => setCurveMode('custom')} type="radio" />Custom equation</label>
               {curveMode === 'custom' && (
-                <div className="custom-fields">
-                  <div><label htmlFor="custom-slope">Slope</label><input id="custom-slope" inputMode="decimal" onChange={(event) => setCustomSlope(event.target.value)} type="number" value={customSlope} /></div>
-                  <div><label htmlFor="custom-intercept">Intercept</label><input id="custom-intercept" inputMode="decimal" onChange={(event) => setCustomIntercept(event.target.value)} type="number" value={customIntercept} /></div>
-                </div>
+                <>
+                  <p className="equation-help">{CUSTOM_EQUATION_HELP}</p>
+                  <div className="custom-fields">
+                    <div><label htmlFor="custom-slope">Slope</label><input id="custom-slope" inputMode="decimal" onChange={(event) => setCustomSlope(event.target.value)} type="number" value={customSlope} /></div>
+                    <div><label htmlFor="custom-intercept">Intercept</label><input id="custom-intercept" inputMode="decimal" onChange={(event) => setCustomIntercept(event.target.value)} type="number" value={customIntercept} /></div>
+                  </div>
+                </>
               )}
             </fieldset>
 
@@ -769,7 +825,7 @@ export default function App() {
             <div className="step-heading">
               <p className="eyebrow">Step 6 of 6</p>
               <h1 id="export-title">Export</h1>
-              <p>Save the standardized well results and curve summary as CSV files.</p>
+              <p>Save the analysis as a formatted Excel workbook or standardized CSV files.</p>
             </div>
             <section className="export-summary" aria-labelledby="export-summary-title">
               <h2 id="export-summary-title">Analysis summary</h2>
@@ -785,10 +841,14 @@ export default function App() {
               <ResultPlate result={result} />
             </section>
             <div className="export-actions">
+              <button className="primary-button" disabled={excelExporting} onClick={() => void exportExcel()} type="button">
+                {excelExporting ? 'Preparing Excel…' : 'Export Excel workbook'}
+              </button>
               <button className="primary-button" onClick={() => downloadCsv(`${baseName}-results.csv`, resultsToCsv(result.rows))} type="button">Export results CSV</button>
               <button className="secondary-button" onClick={() => downloadCsv(`${baseName}-curve-summary.csv`, summaryToCsv(result.summary))} type="button">Export curve summary CSV</button>
               <button className="text-button" onClick={startNewAnalysis} type="button">Start new analysis</button>
             </div>
+            {excelExportError && <p className="inline-error" role="alert">{excelExportError}</p>}
             <NavActions back={() => setStep(5)} />
           </section>
         )}

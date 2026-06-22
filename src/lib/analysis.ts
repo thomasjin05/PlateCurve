@@ -244,6 +244,9 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       const warning = standardWarnings.get(standardGroup.concentration)
       if (warning) rowWarnings.push(warning)
     }
+    if (fit && sampleGroup && calculatedConcentration !== null && fit.rSquared < 0.98) {
+      rowWarnings.push('Linear R² is below 0.98.')
+    }
     if (
       fit &&
       sampleGroup &&

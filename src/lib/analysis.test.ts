@@ -265,6 +265,31 @@ describe('analysis calculations', () => {
     expect(new Set(result.warnings).size).toBe(result.warnings.length)
   })
 
+  it('propagates a low linear R-squared warning to calculated sample rows', () => {
+    const result = analyzePlate({
+      wells: [well('A1', 0), well('A2', 2), well('A3', 2), well('A4', 1)],
+      assignments: {
+        A1: { type: 'standard', groupId: 'std-0' },
+        A2: { type: 'standard', groupId: 'std-1' },
+        A3: { type: 'standard', groupId: 'std-2' },
+        A4: { type: 'sample', groupId: 'sample-1' },
+      },
+      standardGroups: [
+        { id: 'std-0', concentration: 0, wellIds: ['A1'] },
+        { id: 'std-1', concentration: 1, wellIds: ['A2'] },
+        { id: 'std-2', concentration: 2, wellIds: ['A3'] },
+      ],
+      sampleGroups: [
+        { id: 'sample-1', name: 'Patient 1', dilutionFactor: 1, wellIds: ['A4'] },
+      ],
+      blank: { mode: 'none' },
+      curve: { mode: 'linear' },
+    })
+
+    expect(result.warnings).toContain('Linear R² is below 0.98.')
+    expect(result.rows[3].warningStatus).toContain('Linear R² is below 0.98.')
+  })
+
   it('rejects assignments without known group metadata', () => {
     const base = {
       wells: [well('A1', 1)],

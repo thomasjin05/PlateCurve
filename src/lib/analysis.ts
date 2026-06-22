@@ -156,48 +156,78 @@ export function fitFourPL(points: Point[]): FourPLFit {
         ? positiveConcentrations[middle - 1] +
           (positiveConcentrations[middle] - positiveConcentrations[middle - 1]) / 2
         : positiveConcentrations[middle]
-    const minimumC = Math.max(Number.MIN_VALUE, positiveConcentrations[0] * 1e-6)
-    const scaledMaximumC =
-      positiveConcentrations[positiveConcentrations.length - 1] * 1e6
-    const maximumC = Number.isFinite(scaledMaximumC)
-      ? scaledMaximumC
-      : Number.MAX_VALUE
+    const xScale = initialC
+    const normalizedX = uniquePoints.map((point) => point.x / xScale)
+    const yValues = uniquePoints.map((point) => point.y)
+    const minimumY = Math.min(...yValues)
+    const maximumY = Math.max(...yValues)
+    const yRange = maximumY - minimumY
+    if (!Number.isFinite(yRange) || yRange === 0) {
+      throw new Error('Invalid 4PL response range.')
+    }
+    const normalizedY = yValues.map((y) => (y - minimumY) / yRange)
+    const minimumC = Math.max(
+      Number.MIN_VALUE,
+      positiveConcentrations[0] / xScale / 1e6,
+    )
+    const maximumC =
+      (positiveConcentrations[positiveConcentrations.length - 1] / xScale) * 1e6
+    if (
+      !Number.isFinite(xScale) ||
+      xScale <= 0 ||
+      !normalizedX.every((x) => Number.isFinite(x) && x >= 0) ||
+      !normalizedY.every(Number.isFinite) ||
+      !Number.isFinite(minimumC) ||
+      minimumC <= 0 ||
+      !Number.isFinite(maximumC) ||
+      maximumC <= 0
+    ) {
+      throw new Error('Invalid 4PL normalization.')
+    }
 
     const result = levenbergMarquardt(
       {
-        x: uniquePoints.map((point) => point.x),
-        y: uniquePoints.map((point) => point.y),
+        x: normalizedX,
+        y: normalizedY,
       },
       ([a, b, c, d]) =>
         (x) => d + (a - d) / (1 + (x / c) ** b),
       {
         damping: 0.01,
         initialValues: [
-          uniquePoints[0].y,
+          (uniquePoints[0].y - minimumY) / yRange,
           1,
-          initialC,
-          uniquePoints[uniquePoints.length - 1].y,
+          1,
+          (uniquePoints[uniquePoints.length - 1].y - minimumY) / yRange,
         ],
-        minValues: [-Number.MAX_VALUE, 0.05, minimumC, -Number.MAX_VALUE],
-        maxValues: [Number.MAX_VALUE, 20, maximumC, Number.MAX_VALUE],
-        gradientDifference: [
-          Math.max(Math.abs(uniquePoints[0].y) * 1e-4, 1e-6),
-          1e-3,
-          Math.max(initialC * 1e-4, Number.MIN_VALUE),
-          Math.max(
-            Math.abs(uniquePoints[uniquePoints.length - 1].y) * 1e-4,
-            1e-6,
-          ),
-        ],
+        minValues: [-10, 0.05, minimumC, -10],
+        maxValues: [11, 20, maximumC, 11],
+        gradientDifference: [1e-4, 1e-3, 1e-4, 1e-4],
         maxIterations: 500,
         errorTolerance: 1e-10,
       },
     )
-    const [a, b, c, d] = result.parameterValues
-    const fit: FourPLFit = { model: '4pl', a, b, c, d }
+    const [aNormalized, b, cNormalized, dNormalized] = result.parameterValues
+    const normalizedRmse = Math.sqrt(result.parameterError / normalizedY.length)
+    if (
+      !result.parameterValues.every(Number.isFinite) ||
+      !Number.isFinite(result.parameterError) ||
+      result.parameterError < 0 ||
+      !Number.isFinite(normalizedRmse) ||
+      normalizedRmse > 0.25 ||
+      (result.iterations >= 500 && normalizedRmse > 0.1)
+    ) {
+      throw new Error('Invalid 4PL fit quality.')
+    }
+    const fit: FourPLFit = {
+      model: '4pl',
+      a: aNormalized * yRange + minimumY,
+      b,
+      c: cNormalized * xScale,
+      d: dNormalized * yRange + minimumY,
+    }
     validateFourPLFit(fit)
     if (
-      !Number.isFinite(result.parameterError) ||
       uniquePoints.some((point) => !Number.isFinite(evaluateFourPL(point.x, fit)))
     ) {
       throw new Error('Nonfinite 4PL result.')

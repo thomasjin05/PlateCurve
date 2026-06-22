@@ -95,6 +95,48 @@ describe('analysis calculations', () => {
     )
   })
 
+  it('fits the same exact 4PL curve independently of concentration units', () => {
+    const concentrations = [0, 0.01, 0.03, 0.1, 0.3, 1, 3, 10]
+
+    for (const scale of [1e-6, 1, 1e6]) {
+      const source = {
+        model: '4pl' as const,
+        a: 4.2,
+        b: 3.7,
+        c: 0.7 * scale,
+        d: -0.3,
+      }
+      const points = concentrations.map((concentration) => {
+        const x = concentration * scale
+        return { x, y: evaluateFourPL(x, source) }
+      })
+
+      const fit = fitFourPL(points)
+
+      for (const point of points) {
+        expect(evaluateFourPL(point.x, fit)).toBeCloseTo(point.y, 3)
+      }
+      const interiorX = 0.5 * scale
+      const recoveredX = invertFourPL(evaluateFourPL(interiorX, source), fit)
+      expect(Math.abs(recoveredX - interiorX) / interiorX).toBeLessThan(0.02)
+    }
+  })
+
+  it('recovers an interior concentration from mildly noisy 4PL standards', () => {
+    const source = { model: '4pl' as const, a: 3.8, b: 1.7, c: 8, d: 0.25 }
+    const noise = [0.01, -0.025, 0.03, -0.02, 0.015, -0.01]
+    const points = [0, 1, 3, 10, 30, 100].map((x, index) => ({
+      x,
+      y: evaluateFourPL(x, source) + noise[index],
+    }))
+
+    const fit = fitFourPL(points)
+    const interiorX = 6
+    const recoveredX = invertFourPL(evaluateFourPL(interiorX, source), fit)
+
+    expect(Math.abs(recoveredX - interiorX) / interiorX).toBeLessThan(0.15)
+  })
+
   it('fits an ascending 4PL curve', () => {
     const source = { model: '4pl' as const, a: 0.15, b: 1.6, c: 8, d: 2.5 }
     const points = [0, 1, 3, 10, 30, 100].map((x) => ({
@@ -119,6 +161,19 @@ describe('analysis calculations', () => {
     const fit = fitFourPL(points)
 
     expect(evaluateFourPL(10, fit)).toBeCloseTo(evaluateFourPL(10, source), 3)
+  })
+
+  it('rejects a gross non-sigmoidal 4PL fit', () => {
+    expect(() =>
+      fitFourPL([
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+        { x: 3, y: 1 },
+        { x: 4, y: 0 },
+        { x: 5, y: 1 },
+      ]),
+    ).toThrow('4PL fitting did not converge.')
   })
 
   it('rejects invalid 4PL fitting inputs', () => {

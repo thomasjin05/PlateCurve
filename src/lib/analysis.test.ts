@@ -176,6 +176,18 @@ describe('analysis calculations', () => {
     expect(invertFourPL(ascending.a, ascending)).toBe(0)
   })
 
+  it('inverts an extreme finite 4PL endpoint without overflowing', () => {
+    const fit = {
+      model: '4pl' as const,
+      a: Number.MAX_VALUE,
+      b: 1,
+      c: 1,
+      d: -Number.MAX_VALUE,
+    }
+
+    expect(invertFourPL(fit.a, fit)).toBe(0)
+  })
+
   it('rejects 4PL inverse values at an asymptote or outside the fitted range', () => {
     const fit = { model: '4pl' as const, a: 10, b: 2, c: 5, d: 2 }
     const message = 'Absorbance is outside the fitted 4PL range.'

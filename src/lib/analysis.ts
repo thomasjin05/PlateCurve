@@ -213,7 +213,13 @@ export function invertFourPL(y: number, fit: FourPLFit): number {
   const outsideRange = () => {
     throw new Error('Absorbance is outside the fitted 4PL range.')
   }
-  if (!Number.isFinite(y) || y === fit.d) {
+  if (!Number.isFinite(y)) {
+    return outsideRange()
+  }
+  if (y === fit.a) {
+    return 0
+  }
+  if (y === fit.d) {
     return outsideRange()
   }
   const ratio = (fit.a - fit.d) / (y - fit.d) - 1

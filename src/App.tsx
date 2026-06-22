@@ -77,6 +77,14 @@ function nextGroupId(prefix: string, ids: string[]): string {
   return `${prefix}-${index}`
 }
 
+export function countUniqueAssignedStandardConcentrations(
+  groups: readonly StandardGroup[],
+): number {
+  return new Set(
+    groups.filter((group) => group.wellIds.length > 0).map((group) => group.concentration),
+  ).size
+}
+
 function parseRequiredNumber(value: string): number {
   return value.trim() === '' ? Number.NaN : Number(value)
 }
@@ -367,9 +375,9 @@ export default function App() {
     selectedCounts[assignment.type] += 1
   }
   const standardWellCount = selectedCounts.standard
-  const uniqueStandardCount = workspace.standardGroups.filter(
-    (group) => group.wellIds.length > 0,
-  ).length
+  const uniqueStandardCount = countUniqueAssignedStandardConcentrations(
+    workspace.standardGroups,
+  )
 
   const processPlate = () => {
     if (!plate) return
@@ -546,13 +554,16 @@ export default function App() {
                 {workspace.standardGroups.length === 0 && <p className="muted">No standard groups added.</p>}
                 {workspace.standardGroups.map((group) => (
                   <div className="group-row" key={group.id}>
-                    <input
-                      aria-label={`Select standard ${group.concentration}`}
-                      checked={workspace.activeStandardId === group.id}
-                      name="active-standard"
-                      onChange={() => setWorkspace((previous) => ({ ...previous, activeStandardId: group.id }))}
-                      type="radio"
-                    />
+                    <label className="group-radio-option">
+                      <input
+                        aria-label={`Select standard ${group.concentration}`}
+                        checked={workspace.activeStandardId === group.id}
+                        name="active-standard"
+                        onChange={() => setWorkspace((previous) => ({ ...previous, activeStandardId: group.id }))}
+                        type="radio"
+                      />
+                      <span className="sr-only">Select standard {group.concentration}</span>
+                    </label>
                     <label htmlFor={`${group.id}-concentration`}>Concentration</label>
                     <input id={`${group.id}-concentration`} onChange={(event) => updateStandard(group.id, event.target.value)} type="number" value={group.concentration} />
                     <span className="well-list">{group.wellIds.length ? group.wellIds.join(', ') : 'No wells'}</span>
@@ -573,13 +584,16 @@ export default function App() {
                 {workspace.sampleGroups.length === 0 && <p className="muted">No sample groups added.</p>}
                 {workspace.sampleGroups.map((group) => (
                   <div className="group-row sample-group-row" key={group.id}>
-                    <input
-                      aria-label={`Select sample ${group.name}`}
-                      checked={workspace.activeSampleId === group.id}
-                      name="active-sample"
-                      onChange={() => setWorkspace((previous) => ({ ...previous, activeSampleId: group.id }))}
-                      type="radio"
-                    />
+                    <label className="group-radio-option">
+                      <input
+                        aria-label={`Select sample ${group.name}`}
+                        checked={workspace.activeSampleId === group.id}
+                        name="active-sample"
+                        onChange={() => setWorkspace((previous) => ({ ...previous, activeSampleId: group.id }))}
+                        type="radio"
+                      />
+                      <span className="sr-only">Select sample {group.name}</span>
+                    </label>
                     <label htmlFor={`${group.id}-name`}>Name</label>
                     <input id={`${group.id}-name`} onChange={(event) => updateSample(group.id, 'name', event.target.value)} type="text" value={group.name} />
                     <label htmlFor={`${group.id}-dilution`}>Dilution</label>
@@ -621,22 +635,22 @@ export default function App() {
 
             <fieldset className="config-section">
               <legend>Blank correction</legend>
-              <label><input checked={blankMode === 'selected'} name="blank-mode" onChange={() => setBlankMode('selected')} type="radio" />Use selected blank wells</label>
-              <label><input checked={blankMode === 'manual'} name="blank-mode" onChange={() => setBlankMode('manual')} type="radio" />Use manual blank value</label>
+              <label className="radio-option"><input checked={blankMode === 'selected'} name="blank-mode" onChange={() => setBlankMode('selected')} type="radio" />Use selected blank wells</label>
+              <label className="radio-option"><input checked={blankMode === 'manual'} name="blank-mode" onChange={() => setBlankMode('manual')} type="radio" />Use manual blank value</label>
               {blankMode === 'manual' && (
                 <div className="nested-field">
                   <label htmlFor="manual-blank">Manual blank absorbance</label>
                   <input id="manual-blank" inputMode="decimal" onChange={(event) => setManualBlank(event.target.value)} type="number" value={manualBlank} />
                 </div>
               )}
-              <label><input checked={blankMode === 'none'} name="blank-mode" onChange={() => setBlankMode('none')} type="radio" />No blank correction</label>
+              <label className="radio-option"><input checked={blankMode === 'none'} name="blank-mode" onChange={() => setBlankMode('none')} type="radio" />No blank correction</label>
             </fieldset>
 
             <fieldset className="config-section">
               <legend>Curve model</legend>
-              <label><input checked={curveMode === 'linear'} name="curve-mode" onChange={() => setCurveMode('linear')} type="radio" />Linear</label>
-              <label><input checked={curveMode === '4pl'} name="curve-mode" onChange={() => setCurveMode('4pl')} type="radio" />4PL</label>
-              <label><input checked={curveMode === 'custom'} name="curve-mode" onChange={() => setCurveMode('custom')} type="radio" />Custom equation</label>
+              <label className="radio-option"><input checked={curveMode === 'linear'} name="curve-mode" onChange={() => setCurveMode('linear')} type="radio" />Linear</label>
+              <label className="radio-option"><input checked={curveMode === '4pl'} name="curve-mode" onChange={() => setCurveMode('4pl')} type="radio" />4PL</label>
+              <label className="radio-option"><input checked={curveMode === 'custom'} name="curve-mode" onChange={() => setCurveMode('custom')} type="radio" />Custom equation</label>
               {curveMode === 'custom' && (
                 <div className="custom-fields">
                   <div><label htmlFor="custom-slope">Slope</label><input id="custom-slope" inputMode="decimal" onChange={(event) => setCustomSlope(event.target.value)} type="number" value={customSlope} /></div>

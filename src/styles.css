@@ -364,14 +364,42 @@ legend {
 }
 
 .group-row {
-  grid-template-columns: 20px auto minmax(90px, 160px) minmax(140px, 1fr) auto;
+  grid-template-columns: 44px auto minmax(90px, 160px) minmax(140px, 1fr) auto;
   padding-top: 12px;
   margin-top: 12px;
   border-top: 1px solid #e8eeec;
 }
 
 .sample-group-row {
-  grid-template-columns: 20px auto minmax(110px, 1fr) auto minmax(80px, 120px) minmax(130px, 1fr) auto;
+  grid-template-columns: 44px auto minmax(110px, 1fr) auto minmax(80px, 120px) minmax(130px, 1fr) auto;
+}
+
+.group-radio-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.group-radio-option:focus-within,
+.radio-option:focus-within {
+  outline: 3px solid #93c5b9;
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .well-list {
@@ -472,7 +500,11 @@ legend {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 32px;
+  width: fit-content;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
 }
 
 .nested-field,

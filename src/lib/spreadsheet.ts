@@ -42,7 +42,10 @@ export async function parseInputFile(file: File): Promise<ImportedTable> {
   if (name.endsWith('.xlsx') || mime === XLSX_MIME) {
     try {
       const { readSheet } = await import('read-excel-file/browser')
-      const rows = await readSheet<string>(file, { parseNumber: (value) => value })
+      const rows = await readSheet<string>(file, {
+        parseNumber: (value) => value,
+        trim: false,
+      })
       return { rows: normalizeSpreadsheetRows(rows), format: 'xlsx' }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

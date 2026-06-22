@@ -114,3 +114,23 @@ test('reads only the first Excel worksheet and preserves numeric lexical text', 
     })
   }
 })
+
+test('treats typed empty Excel cells as blank cells', async () => {
+  const bytes = await readFile(new URL('../fixtures/labeled-plate.xlsx', import.meta.url))
+  const file = new File([bytes], 'labeled-plate.xlsx', { type: XLSX_MIME })
+  const browserDOMParser = globalThis.DOMParser
+  Object.defineProperty(globalThis, 'DOMParser', { configurable: true, value: XmlDomParser })
+
+  try {
+    const imported = await parseInputFile(file)
+
+    expect(imported.rows[0].slice(0, 3)).toEqual(['ELISA absorbance report', '', ''])
+    expect(imported.rows[5].slice(0, 3)).toEqual(['A', '0.106', '0.112'])
+    expect(imported.rows.flat()).not.toContain('This sheet must be ignored')
+  } finally {
+    Object.defineProperty(globalThis, 'DOMParser', {
+      configurable: true,
+      value: browserDOMParser,
+    })
+  }
+})

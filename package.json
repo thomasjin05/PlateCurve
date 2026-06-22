@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "exceljs": "4.4.0",
     "ml-levenberg-marquardt": "5.0.1",
     "papaparse": "5.5.4",
     "react": "19.2.7",

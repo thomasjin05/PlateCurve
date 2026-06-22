@@ -1,4 +1,4 @@
-import readExcelFile from 'read-excel-file/browser'
+import { readSheet } from 'read-excel-file/browser'
 
 import { parsePlateCsv } from './plate'
 
@@ -9,6 +9,7 @@ export type ImportedTable = {
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const UNSUPPORTED_FILE_MESSAGE = 'Choose a CSV or .xlsx Excel file.'
+export const MAX_INPUT_BYTES = 10 * 1024 * 1024
 
 export function normalizeSpreadsheetRows(
   rows: readonly (readonly unknown[])[],
@@ -27,6 +28,9 @@ export function normalizeSpreadsheetRows(
 
 export async function parseInputFile(file: File): Promise<ImportedTable> {
   if (file.size === 0) throw new Error('The selected file is empty.')
+  if (file.size > MAX_INPUT_BYTES) {
+    throw new Error('The selected file is larger than 10 MB.')
+  }
 
   const name = file.name.toLowerCase()
   const mime = file.type.toLowerCase()
@@ -39,8 +43,8 @@ export async function parseInputFile(file: File): Promise<ImportedTable> {
 
   if (name.endsWith('.xlsx') || mime === XLSX_MIME) {
     try {
-      const sheets = await readExcelFile(file)
-      return { rows: normalizeSpreadsheetRows(sheets[0].data), format: 'xlsx' }
+      const rows = await readSheet<string>(file, { parseNumber: (value) => value })
+      return { rows: normalizeSpreadsheetRows(rows), format: 'xlsx' }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       throw new Error(`Could not read the Excel workbook: ${message}`)

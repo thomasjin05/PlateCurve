@@ -1,6 +1,9 @@
+import { levenbergMarquardt } from 'ml-levenberg-marquardt'
+
 import type {
   AnalysisResult,
   Assignment,
+  FourPLFit,
   LinearFit,
   ResultRow,
   SampleGroup,
@@ -15,6 +18,7 @@ export type BlankPolicy =
   | { mode: 'none' }
 export type CurveConfig =
   | { mode: 'linear' }
+  | { mode: '4pl' }
   | { mode: 'custom'; slope: number; intercept: number }
 
 export interface AnalyzeInput {
@@ -88,6 +92,137 @@ export function invertLinear(
   const result = (absorbance - fit.intercept) / fit.slope
   if (!Number.isFinite(result)) {
     throw new Error('Linear inverse result must be finite.')
+  }
+  return result
+}
+
+function validateFourPLFit(fit: FourPLFit): void {
+  if (
+    ![fit.a, fit.b, fit.c, fit.d].every(Number.isFinite) ||
+    fit.b <= 0 ||
+    fit.c <= 0 ||
+    fit.a === fit.d
+  ) {
+    throw new Error('4PL parameters must be finite and valid.')
+  }
+}
+
+export function evaluateFourPL(x: number, fit: FourPLFit): number {
+  if (!Number.isFinite(x) || x < 0) {
+    throw new Error('4PL concentration must be finite and nonnegative.')
+  }
+  validateFourPLFit(fit)
+  const result = fit.d + (fit.a - fit.d) / (1 + (x / fit.c) ** fit.b)
+  if (!Number.isFinite(result)) {
+    throw new Error('4PL evaluation must be finite.')
+  }
+  return result
+}
+
+export function fitFourPL(points: Point[]): FourPLFit {
+  if (points.some((point) => !Number.isFinite(point.x) || point.x < 0)) {
+    throw new Error('4PL concentrations must be finite and nonnegative.')
+  }
+  if (points.some((point) => !Number.isFinite(point.y))) {
+    throw new Error('4PL responses must be finite.')
+  }
+  if (!points.some((point) => point.x > 0)) {
+    throw new Error('4PL fitting requires at least one positive concentration.')
+  }
+
+  const responsesByConcentration = new Map<number, number[]>()
+  for (const point of points) {
+    const responses = responsesByConcentration.get(point.x) ?? []
+    responses.push(point.y)
+    responsesByConcentration.set(point.x, responses)
+  }
+  if (responsesByConcentration.size < 4) {
+    throw new Error('4PL fitting requires at least four unique concentrations.')
+  }
+
+  try {
+    const uniquePoints = [...responsesByConcentration.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([x, responses]) => ({
+        x,
+        y: calculateFiniteMean(responses, '4PL responses must have finite means.'),
+      }))
+    const positiveConcentrations = uniquePoints
+      .map((point) => point.x)
+      .filter((x) => x > 0)
+    const middle = Math.floor(positiveConcentrations.length / 2)
+    const initialC =
+      positiveConcentrations.length % 2 === 0
+        ? positiveConcentrations[middle - 1] +
+          (positiveConcentrations[middle] - positiveConcentrations[middle - 1]) / 2
+        : positiveConcentrations[middle]
+    const minimumC = Math.max(Number.MIN_VALUE, positiveConcentrations[0] * 1e-6)
+    const scaledMaximumC =
+      positiveConcentrations[positiveConcentrations.length - 1] * 1e6
+    const maximumC = Number.isFinite(scaledMaximumC)
+      ? scaledMaximumC
+      : Number.MAX_VALUE
+
+    const result = levenbergMarquardt(
+      {
+        x: uniquePoints.map((point) => point.x),
+        y: uniquePoints.map((point) => point.y),
+      },
+      ([a, b, c, d]) =>
+        (x) => d + (a - d) / (1 + (x / c) ** b),
+      {
+        damping: 0.01,
+        initialValues: [
+          uniquePoints[0].y,
+          1,
+          initialC,
+          uniquePoints[uniquePoints.length - 1].y,
+        ],
+        minValues: [-Number.MAX_VALUE, 0.05, minimumC, -Number.MAX_VALUE],
+        maxValues: [Number.MAX_VALUE, 20, maximumC, Number.MAX_VALUE],
+        gradientDifference: [
+          Math.max(Math.abs(uniquePoints[0].y) * 1e-4, 1e-6),
+          1e-3,
+          Math.max(initialC * 1e-4, Number.MIN_VALUE),
+          Math.max(
+            Math.abs(uniquePoints[uniquePoints.length - 1].y) * 1e-4,
+            1e-6,
+          ),
+        ],
+        maxIterations: 500,
+        errorTolerance: 1e-10,
+      },
+    )
+    const [a, b, c, d] = result.parameterValues
+    const fit: FourPLFit = { model: '4pl', a, b, c, d }
+    validateFourPLFit(fit)
+    if (
+      !Number.isFinite(result.parameterError) ||
+      uniquePoints.some((point) => !Number.isFinite(evaluateFourPL(point.x, fit)))
+    ) {
+      throw new Error('Nonfinite 4PL result.')
+    }
+    return fit
+  } catch {
+    throw new Error('4PL fitting did not converge.')
+  }
+}
+
+export function invertFourPL(y: number, fit: FourPLFit): number {
+  validateFourPLFit(fit)
+  const outsideRange = () => {
+    throw new Error('Absorbance is outside the fitted 4PL range.')
+  }
+  if (!Number.isFinite(y) || y === fit.d) {
+    return outsideRange()
+  }
+  const ratio = (fit.a - fit.d) / (y - fit.d) - 1
+  if (!Number.isFinite(ratio) || ratio < 0) {
+    return outsideRange()
+  }
+  const result = fit.c * ratio ** (1 / fit.b)
+  if (!Number.isFinite(result) || result < 0) {
+    return outsideRange()
   }
   return result
 }
@@ -181,8 +316,16 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
         `Standard concentration ${x} mean corrected absorbance must be finite.`,
       ),
     }))
-  const fit = input.curve.mode === 'linear' ? fitLinear(standardPoints) : undefined
-  if (fit && fit.rSquared < 0.98) {
+  const fit =
+    input.curve.mode === 'linear'
+      ? fitLinear(standardPoints)
+      : input.curve.mode === '4pl'
+        ? fitFourPL(standardPoints)
+        : undefined
+  if (input.curve.mode === '4pl' && standardPoints.length < 6) {
+    warnings.push('4PL fitting has fewer than 6 unique standard concentrations.')
+  }
+  if (fit?.model === 'linear' && fit.rSquared < 0.98) {
     warnings.push('Linear R² is below 0.98.')
   }
   const standardWarnings = new Map<number, string>()
@@ -226,7 +369,12 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
         : undefined
     const calculatedConcentration =
       sampleGroup && correctedAbsorbance !== null
-        ? invertLinear(correctedAbsorbance, input.curve.mode === 'custom' ? input.curve : fit!)
+        ? input.curve.mode === '4pl'
+          ? invertFourPL(correctedAbsorbance, fit as FourPLFit)
+          : invertLinear(
+              correctedAbsorbance,
+              input.curve.mode === 'custom' ? input.curve : (fit as LinearFit),
+            )
         : null
     let finalConcentration: number | null = null
     if (calculatedConcentration !== null && sampleGroup) {
@@ -244,7 +392,12 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       const warning = standardWarnings.get(standardGroup.concentration)
       if (warning) rowWarnings.push(warning)
     }
-    if (fit && sampleGroup && calculatedConcentration !== null && fit.rSquared < 0.98) {
+    if (
+      fit?.model === 'linear' &&
+      sampleGroup &&
+      calculatedConcentration !== null &&
+      fit.rSquared < 0.98
+    ) {
       rowWarnings.push('Linear R² is below 0.98.')
     }
     if (
@@ -287,7 +440,9 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       standardRange,
       warnings: [...new Set(warnings)],
       ...(fit
-        ? { slope: fit.slope, intercept: fit.intercept, rSquared: fit.rSquared }
+        ? fit.model === 'linear'
+          ? { slope: fit.slope, intercept: fit.intercept, rSquared: fit.rSquared }
+          : { a: fit.a, b: fit.b, c: fit.c, d: fit.d }
         : input.curve.mode === 'custom'
         ? { slope: input.curve.slope, intercept: input.curve.intercept }
         : {}),

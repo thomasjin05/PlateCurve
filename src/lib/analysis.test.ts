@@ -5,7 +5,10 @@ import {
   analyzePlate,
   calculateBlankMean,
   correctAbsorbance,
+  evaluateFourPL,
+  fitFourPL,
   fitLinear,
+  invertFourPL,
   invertLinear,
 } from './analysis'
 
@@ -55,6 +58,133 @@ describe('analysis calculations', () => {
 
     expect(fit).toEqual({ model: 'linear', slope: 2, intercept: 1, rSquared: 1 })
     expect(invertLinear(4, fit)).toBe(1.5)
+  })
+
+  it('evaluates the 4PL curve at zero and its midpoint concentration', () => {
+    const fit = { model: '4pl' as const, a: 10, b: 2, c: 5, d: 2 }
+
+    expect(evaluateFourPL(0, fit)).toBe(10)
+    expect(evaluateFourPL(fit.c, fit)).toBe(6)
+  })
+
+  it('rejects invalid 4PL evaluation inputs', () => {
+    const fit = { model: '4pl' as const, a: 10, b: 2, c: 5, d: 2 }
+
+    expect(() => evaluateFourPL(-1, fit)).toThrow()
+    expect(() => evaluateFourPL(Number.NaN, fit)).toThrow()
+    expect(() => evaluateFourPL(1, { ...fit, b: 0 })).toThrow()
+    expect(() => evaluateFourPL(1, { ...fit, c: 0 })).toThrow()
+    expect(() => evaluateFourPL(1, { ...fit, a: fit.d })).toThrow()
+    expect(() => evaluateFourPL(1, { ...fit, d: Number.POSITIVE_INFINITY })).toThrow()
+  })
+
+  it('fits and inverts an exact descending 4PL curve', () => {
+    const source = { model: '4pl' as const, a: 2.4, b: 1.3, c: 10, d: 0.2 }
+    const concentrations = [0, 1, 3, 10, 30, 100]
+    const points = concentrations.map((x) => ({ x, y: evaluateFourPL(x, source) }))
+
+    const fit = fitFourPL(points)
+
+    for (const point of points) {
+      expect(evaluateFourPL(point.x, fit)).toBeCloseTo(point.y, 3)
+    }
+    const interiorX = 6
+    expect(invertFourPL(evaluateFourPL(interiorX, source), fit)).toBeCloseTo(
+      interiorX,
+      1,
+    )
+  })
+
+  it('fits an ascending 4PL curve', () => {
+    const source = { model: '4pl' as const, a: 0.15, b: 1.6, c: 8, d: 2.5 }
+    const points = [0, 1, 3, 10, 30, 100].map((x) => ({
+      x,
+      y: evaluateFourPL(x, source),
+    }))
+
+    const fit = fitFourPL(points)
+
+    for (const point of points) {
+      expect(evaluateFourPL(point.x, fit)).toBeCloseTo(point.y, 3)
+    }
+  })
+
+  it('combines duplicate concentrations before fitting a 4PL curve', () => {
+    const source = { model: '4pl' as const, a: 2.4, b: 1.3, c: 10, d: 0.2 }
+    const points = [0, 1, 3, 10, 30, 100].flatMap((x) => {
+      const y = evaluateFourPL(x, source)
+      return [{ x, y: y - 0.001 }, { x, y: y + 0.001 }]
+    })
+
+    const fit = fitFourPL(points)
+
+    expect(evaluateFourPL(10, fit)).toBeCloseTo(evaluateFourPL(10, source), 3)
+  })
+
+  it('rejects invalid 4PL fitting inputs', () => {
+    expect(() =>
+      fitFourPL([
+        { x: 0, y: 4 },
+        { x: 1, y: 3 },
+        { x: 1, y: 2 },
+        { x: 2, y: 1 },
+      ]),
+    ).toThrow('4PL fitting requires at least four unique concentrations.')
+    expect(() =>
+      fitFourPL([
+        { x: -1, y: 4 },
+        { x: 0, y: 3 },
+        { x: 1, y: 2 },
+        { x: 2, y: 1 },
+      ]),
+    ).toThrow('4PL concentrations must be finite and nonnegative.')
+    expect(() =>
+      fitFourPL([
+        { x: 0, y: 4 },
+        { x: 0, y: 3 },
+        { x: 0, y: 2 },
+        { x: 0, y: 1 },
+      ]),
+    ).toThrow('4PL fitting requires at least one positive concentration.')
+    expect(() =>
+      fitFourPL([
+        { x: 0, y: 4 },
+        { x: 1, y: 3 },
+        { x: 2, y: Number.NaN },
+        { x: 3, y: 1 },
+      ]),
+    ).toThrow('4PL responses must be finite.')
+  })
+
+  it('reports a numerical 4PL fitting failure cleanly', () => {
+    expect(() =>
+      fitFourPL([
+        { x: 0, y: Number.MAX_VALUE },
+        { x: 0, y: Number.MAX_VALUE },
+        { x: 1, y: 3 },
+        { x: 2, y: 2 },
+        { x: 3, y: 1 },
+      ]),
+    ).toThrow('4PL fitting did not converge.')
+  })
+
+  it('inverts the finite 4PL endpoint to zero', () => {
+    const descending = { model: '4pl' as const, a: 10, b: 2, c: 5, d: 2 }
+    const ascending = { model: '4pl' as const, a: 2, b: 2, c: 5, d: 10 }
+
+    expect(invertFourPL(descending.a, descending)).toBe(0)
+    expect(invertFourPL(ascending.a, ascending)).toBe(0)
+  })
+
+  it('rejects 4PL inverse values at an asymptote or outside the fitted range', () => {
+    const fit = { model: '4pl' as const, a: 10, b: 2, c: 5, d: 2 }
+    const message = 'Absorbance is outside the fitted 4PL range.'
+
+    expect(() => invertFourPL(fit.d, fit)).toThrow(message)
+    expect(() => invertFourPL(11, fit)).toThrow(message)
+    expect(() => invertFourPL(1, fit)).toThrow(message)
+    expect(() => invertFourPL(Number.NaN, fit)).toThrow(message)
+    expect(() => invertFourPL(5, { ...fit, b: -1 })).toThrow()
   })
 
   it('requires at least two unique x values for a linear fit', () => {
@@ -220,6 +350,128 @@ describe('analysis calculations', () => {
       rSquared: 1,
     })
     expect(result.fit).toMatchObject({ slope: 2, intercept: 1, rSquared: 1 })
+  })
+
+  it('calculates a diluted sample and 4PL summary from six standards', () => {
+    const source = { model: '4pl' as const, a: 2.4, b: 1.3, c: 10, d: 0.2 }
+    const concentrations = [0, 1, 3, 10, 30, 100]
+    const sampleX = 6
+    const wells = [
+      ...concentrations.map((x, index) =>
+        well(`A${index + 1}`, evaluateFourPL(x, source)),
+      ),
+      well('A7', evaluateFourPL(sampleX, source)),
+    ]
+    const assignments = Object.fromEntries([
+      ...concentrations.map((_, index) => [
+        `A${index + 1}`,
+        { type: 'standard' as const, groupId: `std-${index}` },
+      ]),
+      ['A7', { type: 'sample' as const, groupId: 'sample-1' }],
+    ])
+
+    const result = analyzePlate({
+      wells,
+      assignments,
+      standardGroups: concentrations.map((concentration, index) => ({
+        id: `std-${index}`,
+        concentration,
+        wellIds: [`A${index + 1}`],
+      })),
+      sampleGroups: [
+        { id: 'sample-1', name: 'Patient 1', dilutionFactor: 10, wellIds: ['A7'] },
+      ],
+      blank: { mode: 'none' },
+      curve: { mode: '4pl' },
+    })
+
+    expect(result.rows[6].calculatedConcentration).toBeCloseTo(sampleX, 1)
+    expect(result.rows[6].finalConcentration).toBeCloseTo(sampleX * 10, 0)
+    expect(result.summary).toMatchObject({
+      model: '4pl',
+      blankCount: 0,
+      standardWellCount: 6,
+      standardRange: '0 to 100',
+    })
+    expect(result.summary.a).toBeTypeOf('number')
+    expect(result.summary.b).toBeTypeOf('number')
+    expect(result.summary.c).toBeTypeOf('number')
+    expect(result.summary.d).toBeTypeOf('number')
+    expect(result.fit).toMatchObject({ model: '4pl' })
+    expect(result.warnings).not.toContain(
+      '4PL fitting has fewer than 6 unique standard concentrations.',
+    )
+  })
+
+  it('warns when 4PL fitting uses four or five unique standards', () => {
+    const source = { model: '4pl' as const, a: 2.4, b: 1.3, c: 10, d: 0.2 }
+    const warning = '4PL fitting has fewer than 6 unique standard concentrations.'
+
+    for (const concentrations of [
+      [0, 1, 10, 100],
+      [0, 1, 3, 10, 100],
+    ]) {
+      const result = analyzePlate({
+        wells: concentrations.map((x, index) =>
+          well(`A${index + 1}`, evaluateFourPL(x, source)),
+        ),
+        assignments: Object.fromEntries(
+          concentrations.map((_, index) => [
+            `A${index + 1}`,
+            { type: 'standard' as const, groupId: `std-${index}` },
+          ]),
+        ),
+        standardGroups: concentrations.map((concentration, index) => ({
+          id: `std-${index}`,
+          concentration,
+          wellIds: [`A${index + 1}`],
+        })),
+        sampleGroups: [],
+        blank: { mode: 'none' },
+        curve: { mode: '4pl' },
+      })
+
+      expect(result.warnings).toContain(warning)
+      expect(result.summary.warnings).toContain(warning)
+    }
+  })
+
+  it('warns on a 4PL sample outside the observed standard response range', () => {
+    const source = { model: '4pl' as const, a: 2.4, b: 1.3, c: 10, d: 0.2 }
+    const concentrations = [0, 1, 3, 10, 30, 100]
+    const sampleWell = 'A7'
+    const warning =
+      'Sample A7 corrected absorbance is outside the observed standard response range.'
+
+    const result = analyzePlate({
+      wells: [
+        ...concentrations.map((x, index) =>
+          well(`A${index + 1}`, evaluateFourPL(x, source)),
+        ),
+        well(sampleWell, evaluateFourPL(200, source)),
+      ],
+      assignments: Object.fromEntries([
+        ...concentrations.map((_, index) => [
+          `A${index + 1}`,
+          { type: 'standard' as const, groupId: `std-${index}` },
+        ]),
+        [sampleWell, { type: 'sample' as const, groupId: 'sample-1' }],
+      ]),
+      standardGroups: concentrations.map((concentration, index) => ({
+        id: `std-${index}`,
+        concentration,
+        wellIds: [`A${index + 1}`],
+      })),
+      sampleGroups: [
+        { id: 'sample-1', name: 'Patient 1', dilutionFactor: 1, wellIds: [sampleWell] },
+      ],
+      blank: { mode: 'none' },
+      curve: { mode: '4pl' },
+    })
+
+    expect(result.rows[6].warningStatus).toContain(warning)
+    expect(result.warnings).toContain(warning)
+    expect(result.summary.warnings).toContain(warning)
   })
 
   it('reports linear fit, replicate, and sample range warnings on affected rows', () => {

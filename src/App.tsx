@@ -562,7 +562,7 @@ export default function App() {
     setExcelExportError('')
     try {
       const { buildExcelWorkbook, downloadExcel } = await import('./lib/excel-export')
-      const bytes = await buildExcelWorkbook({ sourceFile, imported, result })
+      const bytes = await buildExcelWorkbook({ imported, result })
       downloadExcel(`${baseName}-analysis.xlsx`, bytes)
     } catch (error) {
       setExcelExportError(error instanceof Error ? error.message : String(error))

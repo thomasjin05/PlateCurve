@@ -5,7 +5,6 @@ import { RESULT_COLUMNS, downloadBlob, resultToExportRow } from './export'
 import type { ImportedTable } from './spreadsheet'
 
 export interface ExcelExportInput {
-  sourceFile: File
   imported: ImportedTable
   result: AnalysisResult
 }
@@ -144,21 +143,15 @@ function addWellDataSheet(workbook: Workbook, result: AnalysisResult): void {
   })
 }
 
+function addOriginalDataSheet(workbook: Workbook, rows: string[][]): void {
+  const sheet = workbook.addWorksheet('Original Data')
+  sheet.addRows(rows.map((row) => [...row]))
+}
+
 export async function buildExcelWorkbook(input: ExcelExportInput): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook()
 
-  if (input.imported.format === 'xlsx') {
-    const source = (await input.sourceFile.arrayBuffer()) as unknown as Parameters<
-      typeof workbook.xlsx.load
-    >[0]
-    await workbook.xlsx.load(
-      source,
-    )
-  } else {
-    const source = workbook.addWorksheet('Original Data')
-    source.addRows(input.imported.rows.map((row) => [...row]))
-  }
-
+  addOriginalDataSheet(workbook, input.imported.rows)
   addAnalysisSheet(workbook, input.result)
   addWellDataSheet(workbook, input.result)
   return new Uint8Array(await workbook.xlsx.writeBuffer())

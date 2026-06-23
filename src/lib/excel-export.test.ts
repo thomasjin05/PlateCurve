@@ -1,12 +1,8 @@
-import { readFile } from 'node:fs/promises'
-
 import ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisResult, ResultRow } from '../types'
 import { buildExcelWorkbook, formatCurveEquation } from './excel-export'
-
-const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 function resultRow(wellId: string, overrides: Partial<ResultRow> = {}): ResultRow {
   return {
@@ -84,7 +80,6 @@ async function openWorkbook(bytes: Uint8Array): Promise<ExcelJS.Workbook> {
 describe('Excel export', () => {
   it('creates source, analysis, and well-data sheets for CSV input', async () => {
     const bytes = await buildExcelWorkbook({
-      sourceFile: new File(['Instrument,Reader\nRow,1\nA,0.1'], 'plate.csv'),
       imported: {
         format: 'csv',
         rows: [['Instrument', 'Reader'], ['Row', '1'], ['A', '0.1']],
@@ -143,48 +138,23 @@ describe('Excel export', () => {
     expect(detail.getRow(5).values).toEqual([undefined, 'A4', 0])
   })
 
-  it('preserves Excel source sheets before appending result sheets', async () => {
-    const bytes = await readFile(new URL('../fixtures/two-sheet-plate.xlsx', import.meta.url))
+  it('creates source, analysis, and well-data sheets from parsed XLSX rows', async () => {
     const output = await buildExcelWorkbook({
-      sourceFile: new File([bytes], 'plate.xlsx', { type: XLSX_MIME }),
-      imported: { format: 'xlsx', rows: [['FIRST_SHEET']] },
+      imported: {
+        format: 'xlsx',
+        rows: [['Instrument', 'Reader'], ['Row', '1'], ['A', '0.1']],
+      },
       result: analysisResult(),
     })
     const workbook = await openWorkbook(output)
 
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
-      'Plate',
-      'Other',
+      'Original Data',
       'Analysis Results',
       'Well Data',
     ])
-    expect(workbook.getWorksheet('Plate')!.getCell('A1').value).toBe(' FIRST_SHEET ')
-    expect(workbook.getWorksheet('Other')!.getCell('A1').value).toBe('SECOND_SHEET')
-  })
-
-  it('never replaces existing result sheets', async () => {
-    const source = new ExcelJS.Workbook()
-    source.addWorksheet('Source').getCell('A1').value = 'original'
-    source.addWorksheet('Analysis Results').getCell('A1').value = 'keep analysis'
-    source.addWorksheet('Well Data').getCell('A1').value = 'keep data'
-    const sourceBytes = await source.xlsx.writeBuffer()
-
-    const output = await buildExcelWorkbook({
-      sourceFile: new File([sourceBytes], 'plate.xlsx', { type: XLSX_MIME }),
-      imported: { format: 'xlsx', rows: [['original']] },
-      result: analysisResult(),
-    })
-    const workbook = await openWorkbook(output)
-
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
-      'Source',
-      'Analysis Results',
-      'Well Data',
-      'Analysis Results (2)',
-      'Well Data (2)',
-    ])
-    expect(workbook.getWorksheet('Analysis Results')!.getCell('A1').value).toBe('keep analysis')
-    expect(workbook.getWorksheet('Well Data')!.getCell('A1').value).toBe('keep data')
+    expect(workbook.getWorksheet('Original Data')!.getCell('A1').value).toBe('Instrument')
+    expect(workbook.getWorksheet('Original Data')!.getCell('B3').value).toBe('0.1')
   })
 
   it('formats linear, custom, and 4PL equations', () => {

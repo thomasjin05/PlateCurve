@@ -17,7 +17,7 @@ PlateCurve runs entirely in the browser. Upload plate data, assign blanks, stand
 
 PlateCurve can be used in two ways:
 
-- Cloudflare Pages: host the app as a website through Cloudflare Pages.
+- Cloudflare Pages: use the hosted app at `https://platecurve.pages.dev/`.
 - Local download: clone the repository and run it on your computer.
 
 The app is browser-based. Users do not need a server or database after the static site is built.

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { PlateGrid } from './components/PlateGrid'
 import { ResultPlate, ResultsView } from './components/ResultsView'
@@ -41,12 +41,17 @@ export function maximumReachableStep(state: {
 
 type Tool = AssignmentType | 'clear'
 
-type AssignmentWorkspace = {
+export type AssignmentWorkspace = {
   assignments: Record<string, Assignment>
   standardGroups: StandardGroup[]
   sampleGroups: SampleGroup[]
   activeStandardId: string
   activeSampleId: string
+}
+
+export type AssignmentHistory = {
+  past: AssignmentWorkspace[]
+  future: AssignmentWorkspace[]
 }
 
 export type GroupDrafts = {
@@ -63,10 +68,67 @@ const EMPTY_WORKSPACE: AssignmentWorkspace = {
   activeSampleId: '',
 }
 
+const EMPTY_ASSIGNMENT_HISTORY: AssignmentHistory = {
+  past: [],
+  future: [],
+}
+
 const EMPTY_GROUP_DRAFTS: GroupDrafts = {
   standardConcentrations: {},
   sampleNames: {},
   sampleDilutions: {},
+}
+
+function assignmentsEqual(
+  left: Record<string, Assignment>,
+  right: Record<string, Assignment>,
+): boolean {
+  const leftKeys = Object.keys(left)
+  if (leftKeys.length !== Object.keys(right).length) return false
+  return leftKeys.every(
+    (wellId) =>
+      left[wellId]?.type === right[wellId]?.type &&
+      left[wellId]?.groupId === right[wellId]?.groupId,
+  )
+}
+
+export function recordWorkspaceHistory(
+  history: AssignmentHistory,
+  previous: AssignmentWorkspace,
+  next: AssignmentWorkspace,
+): AssignmentHistory {
+  if (assignmentsEqual(previous.assignments, next.assignments)) return history
+  return { past: [...history.past, previous], future: [] }
+}
+
+export function undoWorkspace(
+  history: AssignmentHistory,
+  current: AssignmentWorkspace,
+): { workspace: AssignmentWorkspace; history: AssignmentHistory } {
+  const previous = history.past.at(-1)
+  if (!previous) return { workspace: current, history }
+  return {
+    workspace: previous,
+    history: {
+      past: history.past.slice(0, -1),
+      future: [current, ...history.future],
+    },
+  }
+}
+
+export function redoWorkspace(
+  history: AssignmentHistory,
+  current: AssignmentWorkspace,
+): { workspace: AssignmentWorkspace; history: AssignmentHistory } {
+  const next = history.future[0]
+  if (!next) return { workspace: current, history }
+  return {
+    workspace: next,
+    history: {
+      past: [...history.past, current],
+      future: history.future.slice(1),
+    },
+  }
 }
 
 function syncGroupWells(
@@ -167,6 +229,15 @@ function plateSourceLabel(format: ImportedTable['format'], plate: PlateData): st
   return `${source} rows ${plate.sourceRow + 1}–${plate.sourceRow + 8}, columns ${spreadsheetColumn(plate.sourceColumn + 1)}–${spreadsheetColumn(plate.sourceColumn + 12)}`
 }
 
+function isEditingText(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
+}
+
 function parseWellId(wellId: string): { rowIndex: number; column: number } | null {
   const match = /^([A-H])([1-9]|1[0-2])$/.exec(wellId)
   return match
@@ -244,6 +315,9 @@ export default function App() {
   const [regionColumn, setRegionColumn] = useState('1')
   const [regionError, setRegionError] = useState('')
   const [workspace, setWorkspace] = useState<AssignmentWorkspace>(EMPTY_WORKSPACE)
+  const [assignmentHistory, setAssignmentHistory] = useState<AssignmentHistory>(
+    EMPTY_ASSIGNMENT_HISTORY,
+  )
   const [groupDrafts, setGroupDrafts] = useState<GroupDrafts>(EMPTY_GROUP_DRAFTS)
   const [tool, setTool] = useState<Tool>('blank')
   const [newStandard, setNewStandard] = useState('')
@@ -263,6 +337,7 @@ export default function App() {
 
   const resetAfterPlate = () => {
     setWorkspace(EMPTY_WORKSPACE)
+    setAssignmentHistory(EMPTY_ASSIGNMENT_HISTORY)
     setGroupDrafts(EMPTY_GROUP_DRAFTS)
     setTool('blank')
     setNewStandard('')
@@ -384,9 +459,27 @@ export default function App() {
           assignments[selectedWellId] = { type: 'sample', groupId: previous.activeSampleId }
         }
       }
-      return syncGroupWells(previous, assignments)
+      const next = syncGroupWells(previous, assignments)
+      setAssignmentHistory((history) => recordWorkspaceHistory(history, previous, next))
+      return next
     })
     setLastSelectedWell(wellId)
+  }
+
+  const undoAssignment = () => {
+    const next = undoWorkspace(assignmentHistory, workspace)
+    if (next.workspace === workspace) return
+    setWorkspace(next.workspace)
+    setAssignmentHistory(next.history)
+    setLastSelectedWell('')
+  }
+
+  const redoAssignment = () => {
+    const next = redoWorkspace(assignmentHistory, workspace)
+    if (next.workspace === workspace) return
+    setWorkspace(next.workspace)
+    setAssignmentHistory(next.history)
+    setLastSelectedWell('')
   }
 
   const addStandardGroup = () => {
@@ -493,6 +586,28 @@ export default function App() {
     workspace.standardGroups,
     groupDrafts.standardConcentrations,
   )
+  const canUndoAssignment = assignmentHistory.past.length > 0
+  const canRedoAssignment = assignmentHistory.future.length > 0
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (step !== 3 || isEditingText(event.target)) return
+      const modifier = event.metaKey || event.ctrlKey
+      const key = event.key.toLowerCase()
+      if (!modifier) return
+      if (key === 'z' && !event.shiftKey && canUndoAssignment) {
+        event.preventDefault()
+        undoAssignment()
+      } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+        if (!canRedoAssignment) return
+        event.preventDefault()
+        redoAssignment()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [step, workspace, assignmentHistory, canUndoAssignment, canRedoAssignment])
 
   const processPlate = () => {
     if (!plate) return
@@ -548,7 +663,7 @@ export default function App() {
     }
   }
 
-  const baseName = (fileName.replace(/\.[^.]+$/, '') || 'elisa-analysis').replace(
+  const baseName = (fileName.replace(/\.[^.]+$/, '') || 'platecurve-analysis').replace(
     /[^a-z0-9_-]+/gi,
     '-',
   )
@@ -580,7 +695,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="workflow-rail" aria-label="Analysis steps">
-        <div className="brand">ELISA Lab</div>
+        <div className="brand">PlateCurve</div>
         <ol>
           {STEPS.map((label, index) => {
             const number = index + 1
@@ -609,8 +724,8 @@ export default function App() {
           <section className="step-view upload-step" aria-labelledby="upload-title">
             <div className="step-heading">
               <p className="eyebrow">Step 1 of 6</p>
-              <h1 id="upload-title">Upload CSV or Excel</h1>
-              <p>Choose a plate-reader CSV or modern .xlsx workbook. Excel imports use the first worksheet.</p>
+              <h1 id="upload-title">PlateCurve</h1>
+              <p>Analyze absorbance plate data from ELISA, BCA, Bradford, MTT, OD600, and other colorimetric assays.</p>
             </div>
             <label className="file-field" htmlFor="plate-file">Upload CSV or Excel</label>
             <input
@@ -680,26 +795,6 @@ export default function App() {
               </div>
               <button className="secondary-button" onClick={() => { setRegionOpen(true); setStep(2) }} type="button">Adjust plate region</button>
             </div>
-
-            <div className="assignment-toolbar" role="toolbar" aria-label="Well assignment type">
-              {(['blank', 'standard', 'sample', 'clear'] as const).map((option) => (
-                <button
-                  aria-pressed={tool === option}
-                  className={`assignment-tool ${option}`}
-                  key={option}
-                  onClick={() => setTool(option)}
-                  type="button"
-                >
-                  {option[0].toUpperCase() + option.slice(1)}
-                </button>
-              ))}
-            </div>
-            <p className="muted">Tip: Shift-click another well to assign the range from your last click.</p>
-
-            {(tool === 'standard' && !workspace.activeStandardId) ||
-            (tool === 'sample' && !workspace.activeSampleId) ? (
-              <p className="inline-error" role="alert">Add and select a {tool} group before assigning wells.</p>
-            ) : null}
 
             <div className="group-editors">
               <fieldset>
@@ -794,6 +889,45 @@ export default function App() {
                 ))}
               </fieldset>
             </div>
+            <div className="assignment-controls">
+              <div className="assignment-toolbar" role="toolbar" aria-label="Well assignment type">
+                {(['blank', 'standard', 'sample', 'clear'] as const).map((option) => (
+                  <button
+                    aria-pressed={tool === option}
+                    className={`assignment-tool ${option}`}
+                    key={option}
+                    onClick={() => setTool(option)}
+                    type="button"
+                  >
+                    {option[0].toUpperCase() + option.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="history-actions" aria-label="Assignment history controls">
+                <button
+                  className="secondary-button"
+                  disabled={!canUndoAssignment}
+                  onClick={undoAssignment}
+                  type="button"
+                >
+                  Undo
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={!canRedoAssignment}
+                  onClick={redoAssignment}
+                  type="button"
+                >
+                  Redo
+                </button>
+              </div>
+            </div>
+            <p className="muted">Tip: Shift-click another well to assign a range. Use Cmd/Ctrl+Z to undo and Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y to redo.</p>
+
+            {(tool === 'standard' && !workspace.activeStandardId) ||
+            (tool === 'sample' && !workspace.activeSampleId) ? (
+              <p className="inline-error" role="alert">Add and select a {tool} group before assigning wells.</p>
+            ) : null}
             {groupError && <p className="inline-error" role="alert">{groupError}</p>}
 
             <PlateGrid assignments={workspace.assignments} onWellClick={handleWellClick} wells={plate.wells} />
@@ -882,13 +1016,14 @@ export default function App() {
               <h2 id="export-summary-title">Analysis summary</h2>
               <dl>
                 <div><dt>Curve model</dt><dd>{result.summary.model}</dd></div>
+                <div><dt>Blank mean average</dt><dd>{result.summary.blankMean}</dd></div>
                 <div><dt>Blank wells</dt><dd>{result.summary.blankCount}</dd></div>
                 <div><dt>Standard wells</dt><dd>{result.summary.standardWellCount}</dd></div>
                 <div><dt>Standard range</dt><dd>{result.summary.standardRange || 'Not available'}</dd></div>
               </dl>
             </section>
             <section className="result-plate" aria-labelledby="export-plate-title">
-              <h2 id="export-plate-title">Plate coordinates</h2>
+              <h2 id="export-plate-title">Calculated concentration plate</h2>
               <ResultPlate result={result} />
             </section>
             <div className="export-actions">

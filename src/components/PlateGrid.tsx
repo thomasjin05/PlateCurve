@@ -5,6 +5,7 @@ type PlateGridProps = {
   assignments: Record<string, Assignment>
   onWellClick?: (wellId: string, shiftKey: boolean) => void
   readOnly?: boolean
+  valueLabel?: string
 }
 
 const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const
@@ -20,6 +21,7 @@ export function PlateGrid({
   assignments,
   onWellClick,
   readOnly = false,
+  valueLabel = 'absorbance',
 }: PlateGridProps) {
   const wellsByRow = new Map<string, Map<number, Well>>()
   for (const well of wells) {
@@ -60,7 +62,7 @@ export function PlateGrid({
               return (
                 <td key={wellId}>
                   <button
-                    aria-label={`${wellId}, ${value === null ? 'no absorbance value' : `absorbance ${formatted}`}, ${assignmentLabel}`}
+                    aria-label={`${wellId}, ${value === null ? `no ${valueLabel} value` : `${valueLabel} ${formatted}`}, ${assignmentLabel}`}
                     className={`plate-well ${assignment?.type ?? 'unused'}`}
                     data-well-id={wellId}
                     disabled={readOnly || value === null}

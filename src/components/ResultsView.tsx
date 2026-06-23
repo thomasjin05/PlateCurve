@@ -99,7 +99,7 @@ export function ResultsView({ result }: ResultsViewProps) {
       </section>
 
       <section className="result-plate" aria-labelledby="result-plate-title">
-        <h2 id="result-plate-title">Plate coordinates</h2>
+        <h2 id="result-plate-title">Calculated concentration plate</h2>
         <ResultPlate result={result} />
       </section>
 
@@ -137,8 +137,20 @@ export function ResultPlate({ result }: ResultsViewProps) {
     id: row.wellId,
     row: row.row,
     column: row.column,
-    rawAbsorbance: row.rawAbsorbance,
+    rawAbsorbance:
+      row.assignmentType === 'standard'
+        ? row.standardConcentration ?? 0
+        : row.assignmentType === 'sample'
+          ? row.calculatedConcentration ?? 0
+          : 0,
   }))
 
-  return <PlateGrid assignments={assignments} readOnly wells={wells} />
+  return (
+    <PlateGrid
+      assignments={assignments}
+      readOnly
+      valueLabel="calculated concentration"
+      wells={wells}
+    />
+  )
 }

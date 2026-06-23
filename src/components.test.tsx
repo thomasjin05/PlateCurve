@@ -142,6 +142,9 @@ describe('ResultsView', () => {
     expect(markup).toContain('Blank mean')
     expect(markup).toContain('0 to 10')
     expect(markup).toContain('<table aria-label="96-well plate"')
+    expect(markup).toContain(
+      'aria-label="A2, calculated concentration 10, assigned as standard"',
+    )
     expect(markup).toContain('>H<')
     expect(markup).toContain('>12<')
     let previousIndex = -1

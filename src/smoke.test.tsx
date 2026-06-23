@@ -6,7 +6,8 @@ import App from './App'
 test('renders the app shell', () => {
   const markup = renderToStaticMarkup(<App />)
 
-  expect(markup).toContain('ELISA Lab')
+  expect(markup).toContain('PlateCurve')
+  expect(markup).toContain('Analyze absorbance plate data')
   expect(markup).toContain('Upload CSV or Excel')
   expect(markup).toContain('Upload CSV')
   expect(markup).toContain('Confirm plate')

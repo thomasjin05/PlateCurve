@@ -314,11 +314,20 @@ input[type="file"] {
   padding-top: 22px;
 }
 
-.assignment-toolbar {
+.assignment-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.assignment-toolbar,
+.history-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  margin: 18px 0;
 }
 
 .assignment-tool {
@@ -682,6 +691,11 @@ tbody tr:nth-child(even) td {
   .sample-group-row {
     grid-template-columns: 1fr;
     justify-items: stretch;
+  }
+
+  .assignment-controls {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .group-row input[type="radio"] {

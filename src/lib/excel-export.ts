@@ -113,7 +113,9 @@ function addAnalysisSheet(workbook: Workbook, result: AnalysisResult): void {
   sheet.getCell('B5').value = formatCurveEquation(result.summary)
   sheet.getCell('A6').value = 'R²'
   sheet.getCell('B6').value = result.summary.rSquared ?? null
-  for (const row of [3, 4, 5, 6]) sheet.getCell(row, 1).font = { bold: true }
+  sheet.getCell('A7').value = 'Blank mean average'
+  sheet.getCell('B7').value = result.summary.blankMean
+  for (const row of [3, 4, 5, 6, 7]) sheet.getCell(row, 1).font = { bold: true }
 
   sheet.getCell('A8').value = 'Corrected absorbance'
   sheet.getCell('A8').font = { bold: true, size: 12 }

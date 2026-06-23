@@ -1,12 +1,14 @@
 {
-  "name": "elisa-analysis",
+  "name": "platecurve",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pages:dev": "npm run build && npx wrangler pages dev ./dist",
+    "pages:deploy": "npm run build && npx wrangler pages deploy ./dist --project-name=platecurve"
   },
   "dependencies": {
     "exceljs": "4.4.0",

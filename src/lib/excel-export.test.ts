@@ -101,6 +101,8 @@ describe('Excel export', () => {
     expect(analysis.getCell('B3').value).toBe('linear')
     expect(analysis.getCell('B5').value).toBe('y = 2x + 0.5')
     expect(analysis.getCell('B6').value).toBe(0.99)
+    expect(analysis.getCell('A7').value).toBe('Blank mean average')
+    expect(analysis.getCell('B7').value).toBe(0.11)
     expect(analysis.getCell('B10').value).toBe(-0.01)
     expect(analysis.getCell('C10').value).toBe(0.39)
     expect(analysis.getCell('D10').value).toBe(0.79)

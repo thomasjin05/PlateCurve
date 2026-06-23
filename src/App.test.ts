@@ -4,7 +4,10 @@ import {
   CUSTOM_EQUATION_HELP,
   countUniqueAssignedStandardConcentrations,
   maximumReachableStep,
+  redoWorkspace,
+  recordWorkspaceHistory,
   resolveGroupDrafts,
+  undoWorkspace,
   wellIdsInRange,
 } from './App'
 import type { SampleGroup, StandardGroup } from './types'
@@ -88,4 +91,29 @@ test('well range covers the rectangle between two plate wells', () => {
   expect(
     wellIdsInRange('A1', 'B3', new Set(['A1', 'A2', 'A3', 'B1', 'B2', 'B3'])),
   ).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3'])
+})
+
+test('assignment history records undo and redo states', () => {
+  const empty = {
+    assignments: {},
+    standardGroups: [],
+    sampleGroups: [],
+    activeStandardId: '',
+    activeSampleId: '',
+  }
+  const assigned = {
+    ...empty,
+    assignments: { A1: { type: 'blank' as const } },
+  }
+  const history = recordWorkspaceHistory({ past: [], future: [empty] }, empty, assigned)
+
+  expect(history).toEqual({ past: [empty], future: [] })
+
+  const undone = undoWorkspace(history, assigned)
+  expect(undone.workspace).toBe(empty)
+  expect(undone.history).toEqual({ past: [], future: [assigned] })
+
+  const redone = redoWorkspace(undone.history, undone.workspace)
+  expect(redone.workspace).toBe(assigned)
+  expect(redone.history).toEqual({ past: [empty], future: [] })
 })

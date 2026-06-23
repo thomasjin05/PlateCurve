@@ -167,6 +167,41 @@ function plateSourceLabel(format: ImportedTable['format'], plate: PlateData): st
   return `${source} rows ${plate.sourceRow + 1}–${plate.sourceRow + 8}, columns ${spreadsheetColumn(plate.sourceColumn + 1)}–${spreadsheetColumn(plate.sourceColumn + 12)}`
 }
 
+function parseWellId(wellId: string): { rowIndex: number; column: number } | null {
+  const match = /^([A-H])([1-9]|1[0-2])$/.exec(wellId)
+  return match
+    ? { rowIndex: match[1].charCodeAt(0) - 65, column: Number(match[2]) }
+    : null
+}
+
+export function wellIdsInRange(
+  start: string,
+  end: string,
+  selectableWellIds: ReadonlySet<string>,
+): string[] {
+  const first = parseWellId(start)
+  const last = parseWellId(end)
+  if (!first || !last) return selectableWellIds.has(end) ? [end] : []
+
+  const wellIds: string[] = []
+  for (
+    let rowIndex = Math.min(first.rowIndex, last.rowIndex);
+    rowIndex <= Math.max(first.rowIndex, last.rowIndex);
+    rowIndex += 1
+  ) {
+    const row = String.fromCharCode(65 + rowIndex)
+    for (
+      let column = Math.min(first.column, last.column);
+      column <= Math.max(first.column, last.column);
+      column += 1
+    ) {
+      const wellId = `${row}${column}`
+      if (selectableWellIds.has(wellId)) wellIds.push(wellId)
+    }
+  }
+  return wellIds
+}
+
 function NavActions({
   back,
   continueAction,
@@ -215,6 +250,7 @@ export default function App() {
   const [newSampleName, setNewSampleName] = useState('')
   const [newDilution, setNewDilution] = useState('1')
   const [groupError, setGroupError] = useState('')
+  const [lastSelectedWell, setLastSelectedWell] = useState('')
   const [blankMode, setBlankMode] = useState<BlankPolicy['mode']>('selected')
   const [manualBlank, setManualBlank] = useState('')
   const [curveMode, setCurveMode] = useState<CurveMode>('linear')
@@ -233,6 +269,7 @@ export default function App() {
     setNewSampleName('')
     setNewDilution('1')
     setGroupError('')
+    setLastSelectedWell('')
     setBlankMode('selected')
     setManualBlank('')
     setCurveMode('linear')
@@ -323,20 +360,33 @@ export default function App() {
     }
   }
 
-  const handleWellClick = (wellId: string) => {
+  const handleWellClick = (wellId: string, shiftKey = false) => {
+    const selectableWellIds = new Set(
+      plate?.wells
+        .filter((well) => well.rawAbsorbance !== null)
+        .map((well) => well.id) ?? [],
+    )
+    const selectedWellIds =
+      shiftKey && lastSelectedWell
+        ? wellIdsInRange(lastSelectedWell, wellId, selectableWellIds)
+        : [wellId]
+
     setWorkspace((previous) => {
       const assignments = { ...previous.assignments }
-      if (tool === 'clear') {
-        delete assignments[wellId]
-      } else if (tool === 'blank') {
-        assignments[wellId] = { type: 'blank' }
-      } else if (tool === 'standard' && previous.activeStandardId) {
-        assignments[wellId] = { type: 'standard', groupId: previous.activeStandardId }
-      } else if (tool === 'sample' && previous.activeSampleId) {
-        assignments[wellId] = { type: 'sample', groupId: previous.activeSampleId }
+      for (const selectedWellId of selectedWellIds) {
+        if (tool === 'clear') {
+          delete assignments[selectedWellId]
+        } else if (tool === 'blank') {
+          assignments[selectedWellId] = { type: 'blank' }
+        } else if (tool === 'standard' && previous.activeStandardId) {
+          assignments[selectedWellId] = { type: 'standard', groupId: previous.activeStandardId }
+        } else if (tool === 'sample' && previous.activeSampleId) {
+          assignments[selectedWellId] = { type: 'sample', groupId: previous.activeSampleId }
+        }
       }
       return syncGroupWells(previous, assignments)
     })
+    setLastSelectedWell(wellId)
   }
 
   const addStandardGroup = () => {
@@ -644,6 +694,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+            <p className="muted">Tip: Shift-click another well to assign the range from your last click.</p>
 
             {(tool === 'standard' && !workspace.activeStandardId) ||
             (tool === 'sample' && !workspace.activeSampleId) ? (

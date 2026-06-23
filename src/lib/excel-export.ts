@@ -1,7 +1,7 @@
 import ExcelJS, { type Worksheet, type Workbook } from 'exceljs'
 
 import type { AnalysisResult, CurveSummary, ResultRow } from '../types'
-import { RESULT_COLUMNS, resultToExportRow } from './export'
+import { RESULT_COLUMNS, downloadBlob, resultToExportRow } from './export'
 import type { ImportedTable } from './spreadsheet'
 
 export interface ExcelExportInput {
@@ -165,20 +165,10 @@ export async function buildExcelWorkbook(input: ExcelExportInput): Promise<Uint8
 }
 
 export function downloadExcel(filename: string, bytes: Uint8Array): void {
-  if (!filename.trim()) throw new Error('Filename is required.')
-  const url = URL.createObjectURL(
+  downloadBlob(
+    filename,
     new Blob([bytes as BlobPart], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     }),
   )
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  try {
-    anchor.click()
-  } finally {
-    anchor.remove()
-    URL.revokeObjectURL(url)
-  }
 }

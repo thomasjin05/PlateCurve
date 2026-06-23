@@ -3,7 +3,7 @@ import type { Assignment, Well } from '../types'
 type PlateGridProps = {
   wells: Well[]
   assignments: Record<string, Assignment>
-  onWellClick?: (wellId: string) => void
+  onWellClick?: (wellId: string, shiftKey: boolean) => void
   readOnly?: boolean
 }
 
@@ -64,7 +64,7 @@ export function PlateGrid({
                     className={`plate-well ${assignment?.type ?? 'unused'}`}
                     data-well-id={wellId}
                     disabled={readOnly || value === null}
-                    onClick={() => onWellClick?.(wellId)}
+                    onClick={(event) => onWellClick?.(wellId, event.shiftKey)}
                     type="button"
                   >
                     {formatted}

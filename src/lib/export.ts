@@ -67,12 +67,12 @@ export function summaryToCsv(summary: CurveSummary): string {
   return Papa.unparse({ fields: ['metric', 'value'], data }, { escapeFormulae: true })
 }
 
-export function downloadCsv(filename: string, csv: string): void {
+export function downloadBlob(filename: string, blob: Blob): void {
   if (!filename.trim()) {
     throw new Error('Filename is required.')
   }
 
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename
@@ -83,4 +83,8 @@ export function downloadCsv(filename: string, csv: string): void {
     anchor.remove()
     URL.revokeObjectURL(url)
   }
+}
+
+export function downloadCsv(filename: string, csv: string): void {
+  downloadBlob(filename, new Blob([csv], { type: 'text/csv;charset=utf-8' }))
 }

@@ -78,7 +78,7 @@ export function ResultsView({ result }: ResultsViewProps) {
             <dt>Standard range</dt>
             <dd>{summary.standardRange || 'Not available'}</dd>
           </div>
-          {summary.model === 'linear' && (
+          {(summary.model === 'linear' || summary.model === 'custom') && (
             <>
               <div><dt>Slope</dt><dd>{formatNumber(summary.slope)}</dd></div>
               <div><dt>Intercept</dt><dd>{formatNumber(summary.intercept)}</dd></div>
@@ -90,12 +90,6 @@ export function ResultsView({ result }: ResultsViewProps) {
               <div><dt>B</dt><dd>{formatNumber(summary.b)}</dd></div>
               <div><dt>C</dt><dd>{formatNumber(summary.c)}</dd></div>
               <div><dt>D</dt><dd>{formatNumber(summary.d)}</dd></div>
-            </>
-          )}
-          {summary.model === 'custom' && (
-            <>
-              <div><dt>Slope</dt><dd>{formatNumber(summary.slope)}</dd></div>
-              <div><dt>Intercept</dt><dd>{formatNumber(summary.intercept)}</dd></div>
             </>
           )}
           {summary.rSquared !== undefined && (

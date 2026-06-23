@@ -5,6 +5,7 @@ import {
   countUniqueAssignedStandardConcentrations,
   maximumReachableStep,
   resolveGroupDrafts,
+  wellIdsInRange,
 } from './App'
 import type { SampleGroup, StandardGroup } from './types'
 
@@ -81,4 +82,10 @@ test('custom equation help defines x and y', () => {
   expect(CUSTOM_EQUATION_HELP).toContain('Corrected absorbance (y)')
   expect(CUSTOM_EQUATION_HELP).toContain('concentration (x)')
   expect(CUSTOM_EQUATION_HELP).toContain('solves this equation for x')
+})
+
+test('well range covers the rectangle between two plate wells', () => {
+  expect(
+    wellIdsInRange('A1', 'B3', new Set(['A1', 'A2', 'A3', 'B1', 'B2', 'B3'])),
+  ).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3'])
 })

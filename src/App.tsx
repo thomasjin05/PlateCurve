@@ -695,7 +695,21 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="workflow-rail" aria-label="Analysis steps">
-        <div className="brand">PlateCurve</div>
+        <div className="brand-row">
+          <div className="brand">PlateCurve</div>
+          <a
+            aria-label="Open PlateCurve on GitHub"
+            className="github-link"
+            href="https://github.com/thomasjin05/PlateCurve"
+            rel="noreferrer"
+            target="_blank"
+            title="Open PlateCurve on GitHub"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 1.7a10.3 10.3 0 0 0-3.26 20.07c.52.1.71-.22.71-.5v-1.78c-2.89.63-3.5-1.24-3.5-1.24-.47-1.2-1.15-1.52-1.15-1.52-.94-.64.07-.63.07-.63 1.04.07 1.59 1.07 1.59 1.07.92 1.58 2.42 1.12 3.01.86.09-.67.36-1.12.66-1.38-2.31-.26-4.74-1.15-4.74-5.13 0-1.13.4-2.06 1.07-2.78-.11-.26-.46-1.32.1-2.75 0 0 .87-.28 2.84 1.06A9.8 9.8 0 0 1 12 6.18c.88 0 1.75.12 2.58.35 1.97-1.34 2.84-1.06 2.84-1.06.56 1.43.21 2.49.1 2.75.67.72 1.07 1.65 1.07 2.78 0 3.99-2.44 4.87-4.76 5.13.37.32.7.95.7 1.92v2.85c0 .28.19.6.72.5A10.3 10.3 0 0 0 12 1.7Z" />
+            </svg>
+          </a>
+        </div>
         <ol>
           {STEPS.map((label, index) => {
             const number = index + 1

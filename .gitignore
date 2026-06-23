@@ -1,7 +1,13 @@
 .superpowers/
 .playwright-cli/
+docs/screenshots/
 docs/superpowers/
 .worktrees/
 node_modules/
 dist/
 outputs/
+public/_headers
+src/**/*.test.ts
+src/**/*.test.tsx
+src/fixtures/
+wrangler.jsonc

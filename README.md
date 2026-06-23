@@ -22,24 +22,6 @@ PlateCurve can be used in two ways:
 
 The app is browser-based. Users do not need a server or database after the static site is built.
 
-## Screenshots
-
-### Upload plate data
-
-![PlateCurve upload screen](docs/screenshots/01-upload.png)
-
-### Assign wells
-
-![PlateCurve well assignment screen](docs/screenshots/02-assign-wells.png)
-
-### Review results
-
-![PlateCurve results screen](docs/screenshots/03-results.png)
-
-### Export results
-
-![PlateCurve export screen](docs/screenshots/04-export.png)
-
 ## Run Locally
 
 Use this if you want to download the app and run it on your computer.

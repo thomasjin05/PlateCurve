@@ -2,7 +2,7 @@
 
 Analyze absorbance plate data from ELISA, BCA, Bradford, MTT, OD600, and other colorimetric assays.
 
-PlateCurve runs entirely in the browser. Upload plate data, assign blanks, standards, and samples, fit a standard curve, review calculated concentrations, and export CSV or Excel results.
+PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., assign blanks, standards, and samples, fit a standard curve, review calculated concentrations, and export CSV or Excel results.
 
 ## Features
 

@@ -17,10 +17,28 @@ PlateCurve runs entirely in the browser. Upload plate data, assign blanks, stand
 
 PlateCurve can be used in two ways:
 
-- Cloudflare Pages: use the hosted app at `https://platecurve.pages.dev/`.
+- Hosted app: `https://platecurve.pages.dev/`.
 - Local download: clone the repository and run it on your computer.
 
 The app is browser-based. Users do not need a server or database after the static site is built.
+
+## Screenshots
+
+### Upload plate data
+
+![PlateCurve upload screen](docs/screenshots/01-upload.png)
+
+### Assign wells
+
+![PlateCurve well assignment screen](docs/screenshots/02-assign-wells.png)
+
+### Review results
+
+![PlateCurve results screen](docs/screenshots/03-results.png)
+
+### Export results
+
+![PlateCurve export screen](docs/screenshots/04-export.png)
 
 ## Run Locally
 
@@ -43,27 +61,3 @@ npx vite preview
 ```
 
 The production files are written to `dist/`.
-
-## Deploy To Cloudflare Pages
-
-### Option 1: Cloudflare Dashboard
-
-1. In Cloudflare Pages, connect the GitHub repository `thomasjin05/PlateCurve`.
-2. Set the build command to `npm run build`.
-3. Set the output directory to `dist`.
-4. Deploy.
-
-### Option 2: Wrangler CLI
-
-Log in once:
-
-```bash
-npx wrangler login
-npx wrangler whoami
-```
-
-Deploy:
-
-```bash
-npm run pages:deploy
-```

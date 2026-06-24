@@ -15,7 +15,7 @@ PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., as
 - CSV exports for results and curve summaries
 - Excel workbook export with plate maps and calculated concentrations
 
-## Screenshots
+## App showcase
 
 ### Load Plate Data
 
@@ -32,10 +32,6 @@ PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., as
 ### Results
 
 ![Calculated concentration results](docs/screenshots/04-results.png)
-
-### Export
-
-![Export results](docs/screenshots/05-export.png)
 
 ### Excel Export
 

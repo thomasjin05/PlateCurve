@@ -3,7 +3,7 @@
 Analyze absorbance plate data up to 96 wells from ELISA, BCA, Bradford, MTT, OD600, and other colorimetric assays.
 https://platecurve.pages.dev/
 
-PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., assign blanks, standards, and samples, fit a standard curve, review calculated concentrations, and export CSV or Excel results.
+PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., assign blanks, standards, and samples, fit a standard curve, review calculated concentrations, and export curated CSV or Excel results.
 
 ## Features
 

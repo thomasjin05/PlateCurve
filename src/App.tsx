@@ -31,10 +31,12 @@ export const CUSTOM_EQUATION_HELP =
 export function maximumReachableStep(state: {
   imported: boolean
   plate: boolean
+  hasSample: boolean
   result: boolean
 }): number {
   if (state.result) return 6
-  if (state.plate) return 4
+  if (state.plate && state.hasSample) return 4
+  if (state.plate) return 3
   if (state.imported) return 2
   return 1
 }
@@ -335,6 +337,11 @@ export default function App() {
   const [excelExporting, setExcelExporting] = useState(false)
   const [excelExportError, setExcelExportError] = useState('')
 
+  const clearResult = () => {
+    setResult(null)
+    setExcelExportError('')
+  }
+
   const resetAfterPlate = () => {
     setWorkspace(EMPTY_WORKSPACE)
     setAssignmentHistory(EMPTY_ASSIGNMENT_HISTORY)
@@ -460,9 +467,12 @@ export default function App() {
         }
       }
       const next = syncGroupWells(previous, assignments)
-      setAssignmentHistory((history) => recordWorkspaceHistory(history, previous, next))
+      if (!assignmentsEqual(previous.assignments, next.assignments)) {
+        setAssignmentHistory((history) => recordWorkspaceHistory(history, previous, next))
+      }
       return next
     })
+    clearResult()
     setLastSelectedWell(wellId)
   }
 
@@ -471,6 +481,7 @@ export default function App() {
     if (next.workspace === workspace) return
     setWorkspace(next.workspace)
     setAssignmentHistory(next.history)
+    clearResult()
     setLastSelectedWell('')
   }
 
@@ -479,6 +490,7 @@ export default function App() {
     if (next.workspace === workspace) return
     setWorkspace(next.workspace)
     setAssignmentHistory(next.history)
+    clearResult()
     setLastSelectedWell('')
   }
 
@@ -538,7 +550,7 @@ export default function App() {
         type === 'sample'
           ? previous.sampleGroups.filter((group) => group.id !== groupId)
           : previous.sampleGroups
-      return syncGroupWells(
+      const next = syncGroupWells(
         {
           ...previous,
           standardGroups,
@@ -554,7 +566,12 @@ export default function App() {
         },
         assignments,
       )
+      if (!assignmentsEqual(previous.assignments, next.assignments)) {
+        setAssignmentHistory((history) => recordWorkspaceHistory(history, previous, next))
+      }
+      return next
     })
+    clearResult()
     setGroupDrafts((previous) => {
       const standardConcentrations = { ...previous.standardConcentrations }
       const sampleNames = { ...previous.sampleNames }
@@ -571,6 +588,7 @@ export default function App() {
     groupId: string,
     value: string,
   ) => {
+    clearResult()
     setGroupDrafts((previous) => ({
       ...previous,
       [field]: { ...previous[field], [groupId]: value },
@@ -612,6 +630,7 @@ export default function App() {
   const processPlate = () => {
     if (!plate) return
     setAnalysisError('')
+    setExcelExportError('')
     let resolvedGroups: ReturnType<typeof resolveGroupDrafts>
     try {
       resolvedGroups = resolveGroupDrafts(
@@ -689,6 +708,7 @@ export default function App() {
   const reachableStep = maximumReachableStep({
     imported: imported !== null,
     plate: plate !== null,
+    hasSample: selectedCounts.sample > 0,
     result: result !== null,
   })
 
@@ -973,28 +993,28 @@ export default function App() {
 
             <fieldset className="config-section">
               <legend>Blank correction</legend>
-              <label className="radio-option"><input checked={blankMode === 'selected'} name="blank-mode" onChange={() => setBlankMode('selected')} type="radio" />Use selected blank wells</label>
-              <label className="radio-option"><input checked={blankMode === 'manual'} name="blank-mode" onChange={() => setBlankMode('manual')} type="radio" />Use manual blank value</label>
+              <label className="radio-option"><input checked={blankMode === 'selected'} name="blank-mode" onChange={() => { setBlankMode('selected'); clearResult() }} type="radio" />Use selected blank wells</label>
+              <label className="radio-option"><input checked={blankMode === 'manual'} name="blank-mode" onChange={() => { setBlankMode('manual'); clearResult() }} type="radio" />Use manual blank value</label>
               {blankMode === 'manual' && (
                 <div className="nested-field">
                   <label htmlFor="manual-blank">Manual blank absorbance</label>
-                  <input id="manual-blank" inputMode="decimal" onChange={(event) => setManualBlank(event.target.value)} type="number" value={manualBlank} />
+                  <input id="manual-blank" inputMode="decimal" onChange={(event) => { setManualBlank(event.target.value); clearResult() }} type="number" value={manualBlank} />
                 </div>
               )}
-              <label className="radio-option"><input checked={blankMode === 'none'} name="blank-mode" onChange={() => setBlankMode('none')} type="radio" />No blank correction</label>
+              <label className="radio-option"><input checked={blankMode === 'none'} name="blank-mode" onChange={() => { setBlankMode('none'); clearResult() }} type="radio" />No blank correction</label>
             </fieldset>
 
             <fieldset className="config-section">
               <legend>Curve model</legend>
-              <label className="radio-option"><input checked={curveMode === 'linear'} name="curve-mode" onChange={() => setCurveMode('linear')} type="radio" />Linear</label>
-              <label className="radio-option"><input checked={curveMode === '4pl'} name="curve-mode" onChange={() => setCurveMode('4pl')} type="radio" />4PL</label>
-              <label className="radio-option"><input checked={curveMode === 'custom'} name="curve-mode" onChange={() => setCurveMode('custom')} type="radio" />Custom equation</label>
+              <label className="radio-option"><input checked={curveMode === 'linear'} name="curve-mode" onChange={() => { setCurveMode('linear'); clearResult() }} type="radio" />Linear</label>
+              <label className="radio-option"><input checked={curveMode === '4pl'} name="curve-mode" onChange={() => { setCurveMode('4pl'); clearResult() }} type="radio" />4PL</label>
+              <label className="radio-option"><input checked={curveMode === 'custom'} name="curve-mode" onChange={() => { setCurveMode('custom'); clearResult() }} type="radio" />Custom equation</label>
               {curveMode === 'custom' && (
                 <>
                   <p className="equation-help">{CUSTOM_EQUATION_HELP}</p>
                   <div className="custom-fields">
-                    <div><label htmlFor="custom-slope">Slope</label><input id="custom-slope" inputMode="decimal" onChange={(event) => setCustomSlope(event.target.value)} type="number" value={customSlope} /></div>
-                    <div><label htmlFor="custom-intercept">Intercept</label><input id="custom-intercept" inputMode="decimal" onChange={(event) => setCustomIntercept(event.target.value)} type="number" value={customIntercept} /></div>
+                    <div><label htmlFor="custom-slope">Slope</label><input id="custom-slope" inputMode="decimal" onChange={(event) => { setCustomSlope(event.target.value); clearResult() }} type="number" value={customSlope} /></div>
+                    <div><label htmlFor="custom-intercept">Intercept</label><input id="custom-intercept" inputMode="decimal" onChange={(event) => { setCustomIntercept(event.target.value); clearResult() }} type="number" value={customIntercept} /></div>
                   </div>
                 </>
               )}

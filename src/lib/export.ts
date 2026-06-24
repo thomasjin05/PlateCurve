@@ -14,7 +14,7 @@ export const RESULT_COLUMNS = [
 
 export function resultToExportRow(row: ResultRow): Array<string | number | null> {
   if (row.assignmentType === 'unused') {
-    return [row.wellId, 0, null, null, null, null, null]
+    return [row.wellId, row.rawAbsorbance, 0, null, 0, 0, null]
   }
 
   return [

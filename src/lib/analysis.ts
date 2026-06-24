@@ -249,7 +249,15 @@ export function fitFourPL(points: Point[]): FourPLFit {
       throw new Error('Invalid 4PL fit quality.')
     }
     return fit
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith('4PL ') ||
+        error.message.startsWith('Invalid 4PL') ||
+        error.message.startsWith('Nonfinite 4PL'))
+    ) {
+      throw error
+    }
     throw new Error('4PL fitting did not converge.')
   }
 }
@@ -406,18 +414,22 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
   const rows: ResultRow[] = input.wells.map((well) => {
     const assignment = input.assignments[well.id]
     if (!assignment) {
+      const rawAbsorbance =
+        well.rawAbsorbance !== null && Number.isFinite(well.rawAbsorbance)
+          ? well.rawAbsorbance
+          : null
       return {
         wellId: well.id,
         row: well.row,
         column: well.column,
-        rawAbsorbance: 0,
-        correctedAbsorbance: null,
+        rawAbsorbance,
+        correctedAbsorbance: 0,
         assignmentType: 'unused',
         standardConcentration: null,
         sampleName: '',
-        calculatedConcentration: null,
+        calculatedConcentration: 0,
         dilutionFactor: 1,
-        finalConcentration: null,
+        finalConcentration: 0,
         warningStatus: '',
       }
     }

@@ -6,6 +6,7 @@ type PlateGridProps = {
   onWellClick?: (wellId: string, shiftKey: boolean) => void
   readOnly?: boolean
   valueLabel?: string
+  formatValue?: (value: number | null) => string
 }
 
 const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const
@@ -22,6 +23,7 @@ export function PlateGrid({
   onWellClick,
   readOnly = false,
   valueLabel = 'absorbance',
+  formatValue = formatAbsorbance,
 }: PlateGridProps) {
   const wellsByRow = new Map<string, Map<number, Well>>()
   for (const well of wells) {
@@ -54,7 +56,7 @@ export function PlateGrid({
               const wellId = `${rowName}${column}`
               const value = well?.rawAbsorbance ?? null
               const assignment = assignments[wellId]
-              const formatted = formatAbsorbance(value)
+              const formatted = formatValue(value)
               const assignmentLabel = assignment
                 ? `assigned as ${assignment.type}${assignment.groupId ? ` group ${assignment.groupId}` : ''}`
                 : 'unused'

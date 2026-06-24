@@ -12,6 +12,11 @@ function formatNumber(value: number | null | undefined): string {
   return Number(value.toPrecision(6)).toString()
 }
 
+function formatPlateConcentration(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return 'No value'
+  return value.toFixed(4).replace(/\.?0+$/, '')
+}
+
 function resultCells(row: ResultRow): string[] {
   return resultToExportRow(row).map((cell) =>
     typeof cell === 'number' ? formatNumber(cell) : (cell ?? ''),
@@ -148,6 +153,7 @@ export function ResultPlate({ result }: ResultsViewProps) {
   return (
     <PlateGrid
       assignments={assignments}
+      formatValue={formatPlateConcentration}
       readOnly
       valueLabel="calculated concentration"
       wells={wells}

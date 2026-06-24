@@ -141,7 +141,7 @@ function addWellDataSheet(workbook: Workbook, result: AnalysisResult): void {
   styleHeader(sheet.getRow(1))
   for (const row of result.rows) sheet.addRow(resultToExportRow(row))
   sheet.views = [{ state: 'frozen', ySplit: 1 }]
-  sheet.autoFilter = { from: 'A1', to: 'G1' }
+  sheet.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + RESULT_COLUMNS.length)}1` }
   sheet.columns.forEach((column, index) => {
     column.width = index === 0 ? 12 : 24
   })

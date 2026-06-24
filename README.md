@@ -25,10 +25,6 @@ PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., as
 
 ![Assign wells](docs/screenshots/02-assign-wells.png)
 
-### Configure Curve
-
-![Configure curve](docs/screenshots/03-configure-curve.png)
-
 ### Results
 
 ![Calculated concentration results](docs/screenshots/04-results.png)

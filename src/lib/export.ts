@@ -4,9 +4,9 @@ import type { CurveSummary, ResultRow } from '../types'
 
 export const RESULT_COLUMNS = [
   'well_id',
+  'assignment_type',
   'raw_absorbance',
   'corrected_absorbance',
-  'assignment_type',
   'calculated_concentration',
   'final_concentration',
   'dilution_factor',
@@ -14,14 +14,14 @@ export const RESULT_COLUMNS = [
 
 export function resultToExportRow(row: ResultRow): Array<string | number | null> {
   if (row.assignmentType === 'unused') {
-    return [row.wellId, row.rawAbsorbance, 0, null, 0, 0, null]
+    return [row.wellId, null, row.rawAbsorbance, 0, 0, 0, null]
   }
 
   return [
     row.wellId,
+    row.assignmentType === 'sample' ? row.sampleName : row.assignmentType,
     row.rawAbsorbance,
     row.correctedAbsorbance,
-    row.assignmentType === 'sample' ? row.sampleName : row.assignmentType,
     row.assignmentType === 'standard'
       ? row.standardConcentration
       : row.calculatedConcentration,

@@ -35,10 +35,7 @@ PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., as
 
 ### Excel Export
 
-Sheet 2: Analysis Results
-
 ![Excel analysis results sheet](docs/screenshots/06-excel-analysis-results.png)
-
 
 ## Using The App
 

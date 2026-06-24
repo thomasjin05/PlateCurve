@@ -23,6 +23,13 @@ function resultCells(row: ResultRow): string[] {
   )
 }
 
+function curveModelLabel(model: AnalysisResult['summary']['model']): string {
+  if (model === '4pl') return '4PL model'
+  if (model === 'custom-4pl') return 'Custom 4PL equation'
+  if (model === 'linear') return 'Linear model'
+  return 'Custom equation'
+}
+
 export function ResultsView({ result }: ResultsViewProps) {
   const responses = new Map<number, number[]>()
   for (const row of result.rows) {
@@ -65,7 +72,7 @@ export function ResultsView({ result }: ResultsViewProps) {
         <dl>
           <div>
             <dt>Curve model</dt>
-            <dd>{summary.model === '4pl' ? '4PL model' : summary.model === 'linear' ? 'Linear model' : 'Custom equation'}</dd>
+            <dd>{curveModelLabel(summary.model)}</dd>
           </div>
           <div>
             <dt>Blank mean</dt>
@@ -89,7 +96,7 @@ export function ResultsView({ result }: ResultsViewProps) {
               <div><dt>Intercept</dt><dd>{formatNumber(summary.intercept)}</dd></div>
             </>
           )}
-          {summary.model === '4pl' && (
+          {(summary.model === '4pl' || summary.model === 'custom-4pl') && (
             <>
               <div><dt>A</dt><dd>{formatNumber(summary.a)}</dd></div>
               <div><dt>B</dt><dd>{formatNumber(summary.b)}</dd></div>

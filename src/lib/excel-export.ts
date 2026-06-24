@@ -23,8 +23,19 @@ function formatNumber(value: number | undefined): string {
   return Number(value.toPrecision(8)).toString()
 }
 
+function isFourPLSummary(summary: CurveSummary): boolean {
+  return summary.model === '4pl' || summary.model === 'custom-4pl'
+}
+
+export function formatCurveVariables(summary: CurveSummary): string {
+  if (isFourPLSummary(summary)) {
+    return 'x = concentration; y = corrected absorbance; a = response at zero concentration; b = Hill slope; c = midpoint concentration; d = response at high concentration'
+  }
+  return 'x = concentration; y = corrected absorbance; m = slope; b = intercept'
+}
+
 export function formatCurveEquation(summary: CurveSummary): string {
-  if (summary.model === '4pl') {
+  if (isFourPLSummary(summary)) {
     return `y = ${formatNumber(summary.d)} + (${formatNumber(summary.a)} - ${formatNumber(summary.d)}) / (1 + (x / ${formatNumber(summary.c)})^${formatNumber(summary.b)})`
   }
 
@@ -110,7 +121,7 @@ function addAnalysisSheet(workbook: Workbook, result: AnalysisResult): void {
   sheet.getCell('A3').value = 'Curve model'
   sheet.getCell('B3').value = result.summary.model
   sheet.getCell('A4').value = 'Variables'
-  sheet.getCell('B4').value = 'x = concentration; y = corrected absorbance'
+  sheet.getCell('B4').value = formatCurveVariables(result.summary)
   sheet.getCell('A5').value = 'Equation'
   sheet.getCell('B5').value = formatCurveEquation(result.summary)
   sheet.getCell('A6').value = 'R²'

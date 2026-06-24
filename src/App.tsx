@@ -28,6 +28,9 @@ const STEPS = [
 export const CUSTOM_EQUATION_HELP =
   'Corrected absorbance (y) = slope (m) × concentration (x) + intercept (b). The app solves this equation for x to calculate sample concentration.'
 
+export const CUSTOM_4PL_EQUATION_HELP =
+  'Corrected absorbance (y) = d + (a - d) / (1 + (concentration (x) / c)^b). Enter a, b, c, and d from a validated 4PL curve; b and c must be greater than 0.'
+
 export function maximumReachableStep(state: {
   imported: boolean
   plate: boolean
@@ -231,6 +234,13 @@ function plateSourceLabel(format: ImportedTable['format'], plate: PlateData): st
   return `${source} rows ${plate.sourceRow + 1}–${plate.sourceRow + 8}, columns ${spreadsheetColumn(plate.sourceColumn + 1)}–${spreadsheetColumn(plate.sourceColumn + 12)}`
 }
 
+function curveModeLabel(mode: CurveMode): string {
+  if (mode === '4pl') return '4PL model'
+  if (mode === 'custom-4pl') return 'Custom 4PL equation'
+  if (mode === 'linear') return 'Linear model'
+  return 'Custom equation'
+}
+
 function isEditingText(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLInputElement ||
@@ -332,6 +342,10 @@ export default function App() {
   const [curveMode, setCurveMode] = useState<CurveMode>('linear')
   const [customSlope, setCustomSlope] = useState('')
   const [customIntercept, setCustomIntercept] = useState('')
+  const [custom4plA, setCustom4plA] = useState('')
+  const [custom4plB, setCustom4plB] = useState('')
+  const [custom4plC, setCustom4plC] = useState('')
+  const [custom4plD, setCustom4plD] = useState('')
   const [analysisError, setAnalysisError] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [excelExporting, setExcelExporting] = useState(false)
@@ -357,6 +371,10 @@ export default function App() {
     setCurveMode('linear')
     setCustomSlope('')
     setCustomIntercept('')
+    setCustom4plA('')
+    setCustom4plB('')
+    setCustom4plC('')
+    setCustom4plD('')
     setAnalysisError('')
     setResult(null)
   }
@@ -661,6 +679,14 @@ export default function App() {
         mode: 'custom',
         slope: parseRequiredNumber(customSlope),
         intercept: parseRequiredNumber(customIntercept),
+      }
+    } else if (curveMode === 'custom-4pl') {
+      curve = {
+        mode: 'custom-4pl',
+        a: parseRequiredNumber(custom4plA),
+        b: parseRequiredNumber(custom4plB),
+        c: parseRequiredNumber(custom4plC),
+        d: parseRequiredNumber(custom4plD),
       }
     } else {
       curve = { mode: curveMode }
@@ -1009,12 +1035,24 @@ export default function App() {
               <label className="radio-option"><input checked={curveMode === 'linear'} name="curve-mode" onChange={() => { setCurveMode('linear'); clearResult() }} type="radio" />Linear</label>
               <label className="radio-option"><input checked={curveMode === '4pl'} name="curve-mode" onChange={() => { setCurveMode('4pl'); clearResult() }} type="radio" />4PL</label>
               <label className="radio-option"><input checked={curveMode === 'custom'} name="curve-mode" onChange={() => { setCurveMode('custom'); clearResult() }} type="radio" />Custom equation</label>
+              <label className="radio-option"><input checked={curveMode === 'custom-4pl'} name="curve-mode" onChange={() => { setCurveMode('custom-4pl'); clearResult() }} type="radio" />Custom 4PL equation</label>
               {curveMode === 'custom' && (
                 <>
                   <p className="equation-help">{CUSTOM_EQUATION_HELP}</p>
                   <div className="custom-fields">
                     <div><label htmlFor="custom-slope">Slope</label><input id="custom-slope" inputMode="decimal" onChange={(event) => { setCustomSlope(event.target.value); clearResult() }} type="number" value={customSlope} /></div>
                     <div><label htmlFor="custom-intercept">Intercept</label><input id="custom-intercept" inputMode="decimal" onChange={(event) => { setCustomIntercept(event.target.value); clearResult() }} type="number" value={customIntercept} /></div>
+                  </div>
+                </>
+              )}
+              {curveMode === 'custom-4pl' && (
+                <>
+                  <p className="equation-help">{CUSTOM_4PL_EQUATION_HELP}</p>
+                  <div className="custom-fields">
+                    <div><label htmlFor="custom-4pl-a">a</label><input aria-label="a, response at zero concentration" id="custom-4pl-a" inputMode="decimal" onChange={(event) => { setCustom4plA(event.target.value); clearResult() }} type="number" value={custom4plA} /></div>
+                    <div><label htmlFor="custom-4pl-b">b</label><input aria-label="b, Hill slope" id="custom-4pl-b" inputMode="decimal" onChange={(event) => { setCustom4plB(event.target.value); clearResult() }} type="number" value={custom4plB} /></div>
+                    <div><label htmlFor="custom-4pl-c">c</label><input aria-label="c, midpoint concentration" id="custom-4pl-c" inputMode="decimal" onChange={(event) => { setCustom4plC(event.target.value); clearResult() }} type="number" value={custom4plC} /></div>
+                    <div><label htmlFor="custom-4pl-d">d</label><input aria-label="d, response at high concentration" id="custom-4pl-d" inputMode="decimal" onChange={(event) => { setCustom4plD(event.target.value); clearResult() }} type="number" value={custom4plD} /></div>
                   </div>
                 </>
               )}
@@ -1049,7 +1087,7 @@ export default function App() {
             <section className="export-summary" aria-labelledby="export-summary-title">
               <h2 id="export-summary-title">Analysis summary</h2>
               <dl>
-                <div><dt>Curve model</dt><dd>{result.summary.model}</dd></div>
+                <div><dt>Curve model</dt><dd>{curveModeLabel(result.summary.model)}</dd></div>
                 <div><dt>Blank mean average</dt><dd>{result.summary.blankMean}</dd></div>
                 <div><dt>Blank wells</dt><dd>{result.summary.blankCount}</dd></div>
                 <div><dt>Standard wells</dt><dd>{result.summary.standardWellCount}</dd></div>

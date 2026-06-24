@@ -1,6 +1,6 @@
 export type AssignmentType = 'blank' | 'standard' | 'sample'
 
-export type CurveMode = 'linear' | '4pl' | 'custom'
+export type CurveMode = 'linear' | '4pl' | 'custom' | 'custom-4pl'
 
 export interface Well {
   id: string

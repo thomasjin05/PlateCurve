@@ -20,6 +20,7 @@ export type CurveConfig =
   | { mode: 'linear' }
   | { mode: '4pl' }
   | { mode: 'custom'; slope: number; intercept: number }
+  | { mode: 'custom-4pl'; a: number; b: number; c: number; d: number }
 
 export interface AnalyzeInput {
   wells: Well[]
@@ -96,14 +97,17 @@ export function invertLinear(
   return result
 }
 
-function validateFourPLFit(fit: FourPLFit): void {
+function validateFourPLFit(
+  fit: FourPLFit,
+  errorMessage = '4PL parameters must be finite and valid.',
+): void {
   if (
     ![fit.a, fit.b, fit.c, fit.d].every(Number.isFinite) ||
     fit.b <= 0 ||
     fit.c <= 0 ||
     fit.a === fit.d
   ) {
-    throw new Error('4PL parameters must be finite and valid.')
+    throw new Error(errorMessage)
   }
 }
 
@@ -300,6 +304,18 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
   if (input.curve.mode === 'custom' && !Number.isFinite(input.curve.intercept)) {
     throw new Error('Custom curve intercept must be finite.')
   }
+  if (input.curve.mode === 'custom-4pl') {
+    validateFourPLFit(
+      {
+        model: '4pl',
+        a: input.curve.a,
+        b: input.curve.b,
+        c: input.curve.c,
+        d: input.curve.d,
+      },
+      'Custom 4PL parameters must be finite, with b > 0, c > 0, and a different from d.',
+    )
+  }
   const warnings: string[] = []
   const blankValues =
     input.blank.mode === 'selected'
@@ -321,7 +337,7 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
     blankMean = 0
     warnings.push('No blank correction applied.')
   }
-  if (input.curve.mode === 'custom') {
+  if (input.curve.mode === 'custom' || input.curve.mode === 'custom-4pl') {
     warnings.push('calculated using user-provided equation')
   }
   const sampleGroups = new Map(input.sampleGroups.map((group) => [group.id, group]))
@@ -381,7 +397,15 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
       ? fitLinear(standardPoints)
       : input.curve.mode === '4pl'
         ? fitFourPL(standardPoints)
-        : undefined
+        : input.curve.mode === 'custom-4pl'
+          ? {
+              model: '4pl' as const,
+              a: input.curve.a,
+              b: input.curve.b,
+              c: input.curve.c,
+              d: input.curve.d,
+            }
+          : undefined
   if (input.curve.mode === '4pl' && standardPoints.length < 6) {
     warnings.push('4PL fitting has fewer than 6 unique standard concentrations.')
   }
@@ -451,7 +475,7 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
     const calculatedConcentration = standardGroup
       ? standardGroup.concentration
       : sampleGroup && correctedAbsorbance !== null
-        ? input.curve.mode === '4pl'
+        ? input.curve.mode === '4pl' || input.curve.mode === 'custom-4pl'
           ? invertFourPL(correctedAbsorbance, fit as FourPLFit)
           : invertLinear(
               correctedAbsorbance,
@@ -472,6 +496,7 @@ export function analyzePlate(input: AnalyzeInput): AnalysisResult {
     }
     if (
       fit &&
+      standardPoints.length > 0 &&
       sampleGroup &&
       correctedAbsorbance !== null &&
       (correctedAbsorbance < minimumResponse || correctedAbsorbance > maximumResponse)

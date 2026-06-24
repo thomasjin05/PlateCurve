@@ -52,7 +52,7 @@ export function summaryToCsv(summary: CurveSummary): string {
       ['intercept', summary.intercept],
       ['r_squared', summary.rSquared],
     )
-  } else if (summary.model === '4pl') {
+  } else if (summary.model === '4pl' || summary.model === 'custom-4pl') {
     data.push(
       ['r_squared', summary.rSquared],
       ['a', summary.a],

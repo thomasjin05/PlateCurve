@@ -45,9 +45,11 @@ function uniqueSheetName(workbook: Workbook, base: string): string {
 }
 
 function styleHeader(row: ReturnType<Worksheet['getRow']>): void {
-  row.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-  row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF173F38' } }
-  row.alignment = { horizontal: 'center', vertical: 'middle' }
+  row.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF173F38' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+  })
 }
 
 function addPlateHeaders(sheet: Worksheet, headerRow: number): void {
@@ -98,7 +100,7 @@ function concentrationFor(row: ResultRow): number {
 function addAnalysisSheet(workbook: Workbook, result: AnalysisResult): void {
   const sheet = workbook.addWorksheet(uniqueSheetName(workbook, 'Analysis Results'))
   sheet.mergeCells('A1:M1')
-  sheet.getCell('A1').value = 'ELISA Analysis Results'
+  sheet.getCell('A1').value = 'PlateCurve Analysis Results'
   sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } }
   sheet.getCell('A1').fill = {
     type: 'pattern',

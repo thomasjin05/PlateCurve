@@ -15,6 +15,38 @@ PlateCurve runs entirely in the browser. Upload plate data as a csv or xlsx., as
 - CSV exports for results and curve summaries
 - Excel workbook export with plate maps and calculated concentrations
 
+## Screenshots
+
+### Load Plate Data
+
+![Confirm plate after CSV upload](docs/screenshots/01-confirm-plate.png)
+
+### Assign Wells
+
+![Assign wells](docs/screenshots/02-assign-wells.png)
+
+### Configure Curve
+
+![Configure curve](docs/screenshots/03-configure-curve.png)
+
+### Results
+
+![Calculated concentration results](docs/screenshots/04-results.png)
+
+### Export
+
+![Export results](docs/screenshots/05-export.png)
+
+### Excel Export
+
+Sheet 2: Analysis Results
+
+![Excel analysis results sheet](docs/screenshots/06-excel-analysis-results.png)
+
+Sheet 3: Well Data
+
+![Excel well data sheet](docs/screenshots/07-excel-well-data.png)
+
 ## Using The App
 
 PlateCurve can be used in two ways:

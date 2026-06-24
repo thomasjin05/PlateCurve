@@ -39,9 +39,6 @@ Sheet 2: Analysis Results
 
 ![Excel analysis results sheet](docs/screenshots/06-excel-analysis-results.png)
 
-Sheet 3: Well Data
-
-![Excel well data sheet](docs/screenshots/07-excel-well-data.png)
 
 ## Using The App
 

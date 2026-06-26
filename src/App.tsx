@@ -84,6 +84,76 @@ const EMPTY_GROUP_DRAFTS: GroupDrafts = {
   sampleDilutions: {},
 }
 
+const DEMO_FILE_NAME = 'platecurve-demo.xlsx'
+const DEMO_XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const DEMO_STANDARD_CONCENTRATIONS = [0, 0.625, 1.25, 2.5, 5, 10, 20]
+const DEMO_PLATE_VALUES = [
+  [0.061, 0.058, 0.342, 0.355, 0.611, 0.598, 0.833, 0.821, 1.014, 1.036, 1.23, 1.205],
+  [0.071, 0.073, 0.394, 0.388, 0.644, 0.659, 0.872, 0.861, 1.081, 1.067, 1.284, 1.301],
+  [0.132, 0.129, 0.376, 0.389, 0.591, 0.606, 0.799, 0.817, 1.006, 1.017, 1.218, 1.206],
+  [0.235, 0.24, 0.365, 0.372, 0.553, 0.568, 0.781, 0.766, 0.948, 0.961, 1.174, 1.166],
+  [0.421, 0.43, 0.355, 0.347, 0.529, 0.538, 0.742, 0.731, 0.918, 0.904, 1.109, 1.124],
+  [0.798, 0.782, 0.331, 0.346, 0.503, 0.491, 0.708, 0.721, 0.884, 0.897, 1.061, 1.075],
+  [1.312, 1.334, 0.318, 0.327, 0.479, 0.486, 0.673, 0.681, 0.849, 0.862, 1.025, 1.014],
+  [1.873, 1.846, 0.301, 0.314, 0.452, 0.466, 0.638, 0.649, 0.817, 0.806, 0.981, 0.996],
+]
+const DEMO_ROWS: string[][] = [
+  ['PlateCurve demo workbook'],
+  ['Assay', 'Colorimetric demo'],
+  ['', '', ...Array.from({ length: 12 }, (_, column) => String(column + 1))],
+  ...DEMO_PLATE_VALUES.map((values, rowIndex) => [
+    '',
+    String.fromCharCode(65 + rowIndex),
+    ...values.map((value) => String(value)),
+  ]),
+]
+
+export type DemoAnalysisSetup = {
+  fileName: string
+  imported: ImportedTable
+  plate: PlateData
+  workspace: AssignmentWorkspace
+  tool: Tool
+}
+
+export function createDemoAnalysisSetup(): DemoAnalysisSetup {
+  const imported: ImportedTable = { rows: DEMO_ROWS, format: 'xlsx' }
+  const plate = extractPlate(imported.rows)
+  const standardGroups = DEMO_STANDARD_CONCENTRATIONS.map((concentration, index) => {
+    const row = String.fromCharCode(66 + index)
+    return {
+      id: `standard-${index + 1}`,
+      concentration,
+      wellIds: [`${row}1`, `${row}2`],
+    }
+  })
+  const sampleGroups: SampleGroup[] = [
+    { id: 'sample-1', name: 'Demo sample', dilutionFactor: 1, wellIds: [] },
+  ]
+  const assignments: Record<string, Assignment> = {
+    A1: { type: 'blank' },
+    A2: { type: 'blank' },
+  }
+  for (const group of standardGroups) {
+    for (const wellId of group.wellIds) assignments[wellId] = { type: 'standard', groupId: group.id }
+  }
+
+  return {
+    fileName: DEMO_FILE_NAME,
+    imported,
+    plate,
+    workspace: {
+      assignments,
+      standardGroups,
+      sampleGroups,
+      activeStandardId: standardGroups[0].id,
+      activeSampleId: sampleGroups[0].id,
+    },
+    tool: 'sample',
+  }
+}
+
 function assignmentsEqual(
   left: Record<string, Assignment>,
   right: Record<string, Assignment>,
@@ -395,6 +465,30 @@ export default function App() {
     setRegionColumn('1')
     setRegionError('')
     resetAfterPlate()
+  }
+
+  const loadDemo = () => {
+    const demo = createDemoAnalysisSetup()
+
+    resetAfterPlate()
+    setStep(3)
+    setFileInputKey((value) => value + 1)
+    setFileName(demo.fileName)
+    setSourceFile(
+      new File(['PlateCurve demo workbook'], demo.fileName, { type: DEMO_XLSX_MIME }),
+    )
+    setImported(demo.imported)
+    setPlate(demo.plate)
+    setLoading(false)
+    setUploadError('')
+    setExcelExporting(false)
+    setExcelExportError('')
+    setRegionOpen(false)
+    setRegionRow(String(demo.plate.sourceRow + 1))
+    setRegionColumn(String(demo.plate.sourceColumn + 1))
+    setRegionError('')
+    setWorkspace(demo.workspace)
+    setTool(demo.tool)
   }
 
   const handleFile = async (file: File | undefined) => {
@@ -796,6 +890,10 @@ export default function App() {
               onChange={(event) => void handleFile(event.target.files?.[0])}
               type="file"
             />
+            <div className="demo-actions">
+              <button className="secondary-button" disabled={loading} onClick={loadDemo} type="button">Try demo workbook</button>
+              <p className="muted">Starts with blanks and standards assigned.</p>
+            </div>
             {loading && <p role="status">Reading {fileName}…</p>}
             {uploadError && <p className="inline-error" role="alert">{uploadError}</p>}
             {imported && (

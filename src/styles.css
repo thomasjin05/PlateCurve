@@ -254,6 +254,18 @@ input[type="file"] {
   border-radius: 8px;
 }
 
+.demo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 14px;
+}
+
+.demo-actions p {
+  margin: 0;
+}
+
 .return-panel,
 .region-editor,
 .warning-panel,

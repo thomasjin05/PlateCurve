@@ -85,8 +85,6 @@ const EMPTY_GROUP_DRAFTS: GroupDrafts = {
 }
 
 const DEMO_FILE_NAME = 'platecurve-demo.xlsx'
-const DEMO_XLSX_MIME =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const DEMO_STANDARD_CONCENTRATIONS = [0, 0.625, 1.25, 2.5, 5, 10, 20]
 const DEMO_PLATE_VALUES = [
   [0.061, 0.058, 0.342, 0.355, 0.611, 0.598, 0.833, 0.821, 1.014, 1.036, 1.23, 1.205],
@@ -387,7 +385,6 @@ export default function App() {
   const [step, setStep] = useState(1)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [fileName, setFileName] = useState('')
-  const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [imported, setImported] = useState<ImportedTable | null>(null)
   const [plate, setPlate] = useState<PlateData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -453,7 +450,6 @@ export default function App() {
     setStep(1)
     setFileInputKey((value) => value + 1)
     setFileName('')
-    setSourceFile(null)
     setImported(null)
     setPlate(null)
     setLoading(false)
@@ -474,9 +470,6 @@ export default function App() {
     setStep(3)
     setFileInputKey((value) => value + 1)
     setFileName(demo.fileName)
-    setSourceFile(
-      new File(['PlateCurve demo workbook'], demo.fileName, { type: DEMO_XLSX_MIME }),
-    )
     setImported(demo.imported)
     setPlate(demo.plate)
     setLoading(false)
@@ -497,7 +490,6 @@ export default function App() {
 
     setStep(1)
     setFileName(file.name)
-    setSourceFile(null)
     setImported(null)
     setPlate(null)
     setLoading(true)
@@ -510,7 +502,6 @@ export default function App() {
 
     try {
       const table = await parseInputFile(file)
-      setSourceFile(file)
       setImported(table)
       try {
         const detected = extractPlate(table.rows)
@@ -808,7 +799,7 @@ export default function App() {
   )
 
   const exportExcel = async () => {
-    if (!sourceFile || !imported || !result) {
+    if (!imported || !result) {
       setExcelExportError('Load and analyze a plate before exporting Excel.')
       return
     }
